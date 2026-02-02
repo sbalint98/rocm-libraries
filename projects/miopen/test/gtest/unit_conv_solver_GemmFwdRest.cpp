@@ -39,6 +39,34 @@ auto GetConvTestCases(miopenDataType_t datatype)
     return std::vector{
         // clang-format off
         TestCase{{1, 8, 8, 8}, {8, 8, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y},
+        TestCase{{1, 3, 16, 16}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y},         // Basic convolution
+        TestCase{{1, 3, 16, 16}, {4, 3, 5, 5}, {2, 2}, {1, 1}, {1, 1}, type_x, type_w, type_y},         // Stride 2x2 test (downsampling)
+        TestCase{{1, 3, 14, 14}, {4, 3, 3, 3}, {2, 2}, {2, 2}, {2, 2}, type_x, type_w, type_y},         // Dilation + padding + stride
+        TestCase{{1, 3, 7, 7}, {4, 3, 5, 5}, {0, 0}, {1, 1}, {2, 2}, type_x, type_w, type_y},           // Large dilation on small input
+        TestCase{{1, 3, 5, 5}, {4, 3, 3, 3}, {0, 0}, {2, 2}, {1, 1}, type_x, type_w, type_y},           // Stride-only test
+        TestCase{{1, 3, 3, 3}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y},           // Input same size as kernel
+        TestCase{{1, 3, 2, 2}, {4, 3, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y},           // Input smaller than kernel (should be mostly padded zeros)
+        TestCase{{1, 3, 24, 24}, {4, 3, 5, 5}, {3, 3}, {2, 2}, {2, 2}, type_x, type_w, type_y},         // Realistic image size + dilation + padding + stride
+        TestCase{{2, 8, 16, 16}, {16, 8, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y},        // Batched input + increased channels
+        TestCase{{1, 16, 64, 64}, {32, 16, 5, 5}, {2, 2}, {1, 1}, {2, 2}, type_x, type_w, type_y},      // Large input
+        TestCase{{1, 3, 14, 14}, {4, 3, 3, 3}, {2, 2}, {1, 1}, {3, 3}, type_x, type_w, type_y},         // Large dilation, small input
+        TestCase{{1, 8, 32, 32}, {16, 8, 3, 3}, {1, 1}, {4, 4}, {1, 1}, type_x, type_w, type_y},        // Large stride, medium input
+        TestCase{{1, 3, 28, 28}, {6, 3, 5, 5}, {2, 2}, {3, 3}, {2, 2}, type_x, type_w, type_y},         // Large stride + dilation
+        TestCase{{1, 3, 20, 20}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {5, 5}, type_x, type_w, type_y},         // Very large dilation
+        TestCase{{1, 3, 16, 16}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},    // same, with NHWC
+        TestCase{{1, 3, 16, 16}, {4, 3, 5, 5}, {2, 2}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 3, 14, 14}, {4, 3, 3, 3}, {2, 2}, {2, 2}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 3, 7, 7}, {4, 3, 5, 5}, {0, 0}, {1, 1}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 3, 5, 5}, {4, 3, 3, 3}, {0, 0}, {2, 2}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 3, 3, 3}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 3, 2, 2}, {4, 3, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 3, 24, 24}, {4, 3, 5, 5}, {3, 3}, {2, 2}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{2, 8, 16, 16}, {16, 8, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 16, 64, 64}, {32, 16, 5, 5}, {2, 2}, {1, 1}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 3, 14, 14}, {4, 3, 3, 3}, {2, 2}, {1, 1}, {3, 3}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 8, 32, 32}, {16, 8, 3, 3}, {1, 1}, {4, 4}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 3, 28, 28}, {6, 3, 5, 5}, {2, 2}, {3, 3}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+        TestCase{{1, 3, 20, 20}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {5, 5}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
         // clang-format on
     };
 }

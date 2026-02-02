@@ -49,10 +49,10 @@ class ConvAttrFp16AltScopedSetter
 {
 public:
     ConvAttrFp16AltScopedSetter() noexcept {}
-    ConvAttrFp16AltScopedSetter(const ConvAttrFp16AltScopedSetter&) = delete;
-    ConvAttrFp16AltScopedSetter(ConvAttrFp16AltScopedSetter&&)      = delete;
+    ConvAttrFp16AltScopedSetter(const ConvAttrFp16AltScopedSetter&)            = delete;
+    ConvAttrFp16AltScopedSetter(ConvAttrFp16AltScopedSetter&&)                 = delete;
     ConvAttrFp16AltScopedSetter& operator=(const ConvAttrFp16AltScopedSetter&) = delete;
-    ConvAttrFp16AltScopedSetter& operator=(ConvAttrFp16AltScopedSetter&&) = delete;
+    ConvAttrFp16AltScopedSetter& operator=(ConvAttrFp16AltScopedSetter&&)      = delete;
 
     ~ConvAttrFp16AltScopedSetter()
     {
@@ -93,7 +93,7 @@ bool IsDeviceSupported(Gpu supported_devs, Gpu dev)
 // ConvTestCase
 //************************************************************************************
 
-ConvTestCase::ConvTestCase() : x(miopenHalf, {}), w(miopenHalf, {}), conv({}, {}, {}){};
+ConvTestCase::ConvTestCase() : x(miopenHalf, {}), w(miopenHalf, {}), conv({}, {}, {}) {};
 
 ConvTestCase::ConvTestCase(std::vector<size_t>&& x_,
                            std::vector<size_t>&& w_,
@@ -132,6 +132,26 @@ ConvTestCase::ConvTestCase(std::vector<size_t>&& x_,
                            std::vector<int>&& pad_,
                            std::vector<int>&& stride_,
                            std::vector<int>&& dilation_,
+                           miopenDataType_t type_,
+                           miopenTensorLayout_t layout_)
+    : ConvTestCase(std::move(x_),
+                   std::move(w_),
+                   std::move(pad_),
+                   std::move(stride_),
+                   std::move(dilation_),
+                   type_,
+                   type_,
+                   type_,
+                   layout_,
+                   layout_)
+{
+}
+
+ConvTestCase::ConvTestCase(std::vector<size_t>&& x_,
+                           std::vector<size_t>&& w_,
+                           std::vector<int>&& pad_,
+                           std::vector<int>&& stride_,
+                           std::vector<int>&& dilation_,
                            miopenDataType_t type_x_,
                            miopenDataType_t type_w_,
                            miopenDataType_t type_y_)
@@ -158,6 +178,24 @@ ConvTestCase::ConvTestCase(TensorDescriptorParams&& x_,
     {
         throw std::runtime_error("wrong test case format");
     }
+}
+
+ConvTestCase::ConvTestCase(std::vector<size_t>&& x_,
+                           std::vector<size_t>&& w_,
+                           std::vector<int>&& pad_,
+                           std::vector<int>&& stride_,
+                           std::vector<int>&& dilation_,
+                           miopenDataType_t type_x_,
+                           miopenDataType_t type_w_,
+                           miopenDataType_t type_y_,
+                           miopenTensorLayout_t layout_x_,
+                           miopenTensorLayout_t layout_w_)
+    : ConvTestCase(
+          TensorDescriptorParams{type_x_, layout_x_, std::move(x_)},
+          TensorDescriptorParams{type_w_, layout_w_, std::move(w_)},
+          type_y_,
+          ConvolutionDescriptorParams{std::move(pad_), std::move(stride_), std::move(dilation_)})
+{
 }
 
 miopen::TensorDescriptor ConvTestCase::GetXTensorDescriptor() const

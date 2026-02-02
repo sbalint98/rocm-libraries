@@ -470,7 +470,8 @@ ConvSolution GemmWrwUniversal::GetSolution(const ExecutionContext& context,
                                   conv_strides,
                                   conv_dilations,
                                   workspace,
-                                  dyDesc_.GetType());
+                                  dyDesc_.GetType(),
+                                  false);
 
                 miopenStatus_t status;
 

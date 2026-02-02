@@ -48,7 +48,8 @@ Im2ColGPU(const Handle& handle,
           const std::vector<int>& stride_spatial,
           const std::vector<int>& dilation_spatial,
           Data_t col,
-          miopenDataType_t type);
+          miopenDataType_t type,
+          bool layoutNHWC);
 
 MIOPEN_INTERNALS_EXPORT float
 Col2ImGPU(const Handle& handle,
@@ -63,7 +64,8 @@ Col2ImGPU(const Handle& handle,
           const decltype(boost::adaptors::slice(std::vector<std::size_t>(), 0, 1))& in_spatial,
           Data_t im,
           std::size_t im_offset,
-          miopenDataType_t type);
+          miopenDataType_t type,
+          bool layoutNHWC);
 
 MIOPEN_INTERNALS_EXPORT float transpose_NCHW2CNHW(const Handle& handle,
                                                   int n,
