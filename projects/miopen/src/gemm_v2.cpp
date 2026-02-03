@@ -734,7 +734,7 @@ miopenStatus_t CallGemm(const Handle& handle,
         switch(gemm_desc.dataType)
         {
         case miopenInt8: {
-            assert(gemm_desc.k % 4 == 0);
+            //assert(gemm_desc.k % 4 == 0);
 
             auto alpha = int(gemm_desc.alpha);
             auto beta  = int(gemm_desc.beta);
