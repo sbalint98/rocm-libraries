@@ -26,6 +26,11 @@
 #include "float_types.h"
 #include "miopen_cstdint.hpp"
 
+#ifndef LAYOUT_NHWC
+#define LAYOUT_NHWC 0
+#endif
+
+
 #if MIOPEN_USE_FP16
 #define ACCUMULATOR_NEEDS_CONVERSION 1
 #elif MIOPEN_USE_BFP16
@@ -43,6 +48,79 @@ using index_t = uint64_t;
 #else
 using index_t = uint32_t;
 #endif
+
+
+#if (LAYOUT_NHWC == 1)
+extern "C" __global__  void Col2Im2dU( _FLOAT* col,
+                        const uint32_t col_h,
+                        const uint32_t col_w,
+                        const uint32_t wei_h,
+                        const uint32_t wei_w,
+                        const uint32_t pad_h,
+                        const uint32_t pad_w,
+                        const uint32_t stride_h,
+                        const uint32_t stride_w,
+                        const uint32_t dilation_h,
+                        const uint32_t dilation_w,
+                        const uint32_t height,
+                        const uint32_t width,
+                         _FLOAT* im,
+                        const uint32_t im_offset)
+{
+    global _FLOAT* im_off = im + im_offset;
+
+    const size_t gid         = blockIdx.x*bolckDim.x + threadIdx.x;
+    const size_t global_size = blockDim.x*gridDim.x;
+    const uint32_t channels      = global_size / (height * width);
+
+    uint32_t c = gid % channels; // coordinates of the image's pixel handled by this thread
+    uint32_t w = (gid / channels) % width;
+    uint32_t h = gid / (channels * width);
+
+    if(h >= height || w >= width || c >= channels)
+        return;
+
+    _FLOAT_ACCUM val = (_FLOAT_ACCUM)0;
+
+    // Loop over all possible (cy, fy) and (cx, fx) such that h = cy + fy and w = cx + fx
+    // cx,cy - position in the conv output (dy) -- add the filter coordinates (fx,fy) -> you get the
+    // location in the image, where the filter was applied.
+    // h + pad_h = cy * stride_h + fy * dilation_h  =>  cy = (h + pad_h - fy * dilation_h) /
+    // stride_h
+    for(uint32_t fy = 0; fy < wei_h; fy++)
+    {
+        int h_pad = h + pad_h - fy * dilation_h;
+        if(h_pad < 0 || h_pad % stride_h != 0)
+            continue;
+
+        int cy = h_pad / stride_h;
+        if(cy < 0 || cy >= col_h)
+            continue;
+
+        for(uint32_t fx = 0; fx < wei_w; fx++)
+        {
+            int w_pad = w + pad_w - fx * dilation_w;
+            if(w_pad < 0 || w_pad % stride_w != 0)
+                continue;
+
+            int cx = w_pad / stride_w;
+            if(cx < 0 || cx >= col_w)
+                continue;
+
+            size_t col_idx = (((((cy * col_w + cx) * wei_h + fy) * wei_w + fx) * channels) + c);
+            val += CVT_FLOAT2ACCUM(col[col_idx]);
+        }
+    }
+
+#if ACCUMULATOR_NEEDS_CONVERSION
+    im_off[gid] = val > CVT_FLOAT2ACCUM(MAX_VAL) ? MAX_VAL : CVT_ACCUM2FLOAT(val);
+#else
+    im_off[gid] = CVT_ACCUM2FLOAT(val);
+#endif
+}
+
+#else // LAYOUT_NHWC
+
 
 extern "C" __global__ void Col2Im2dU(FLOAT* col,
                                      const unsigned int col_h,
@@ -106,3 +184,5 @@ extern "C" __global__ void Col2Im2dU(FLOAT* col,
     im_off[gid] = tmp;
 #endif
 }
+
+#endif // LAYOUT_NHWC else

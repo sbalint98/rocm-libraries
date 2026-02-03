@@ -26,6 +26,10 @@
 
 #include "miopen_cstdint.hpp"
 
+#ifndef LAYOUT_NHWC
+#define LAYOUT_NHWC 0
+#endif
+
 #ifndef MIOPEN_USE_FP32
 #define MIOPEN_USE_FP32 0
 #endif
@@ -112,6 +116,81 @@ using index_t = int64_t;
 #else
 using index_t = int32_t;
 #endif
+
+#if (LAYOUT_NHWC == 1)
+
+  
+
+  
+extern "C" __global__ void Im2d2Col_v2(const int data_size_off,
+                        data_t* im,
+                        const uint64_t im_offset,
+                        const int h,
+                        const int w,
+                        const int wei_h,
+                        const int wei_w,
+                        const int out_h,
+                        const int out_w,
+                        const int pad_h,
+                        const int pad_w,
+                        const int stride_h,
+                        const int stride_w,
+                        const int dilation_h,
+                        const int dilation_w,
+                        data_t* col)
+{
+
+#if USE_IM_OFF_GUARD
+#define IM_OFF_GUARD(idx) (idx) < data_size_off ? im_off[(idx)] : 0
+#else
+#define IM_OFF_GUARD(idx) im_off[idx]
+#endif
+
+    int lid        = threadIdx.x;
+    int grp_id     = blockIdx.x;
+    int local_size = blockDim.x;
+
+    int chan = grp_id; // each channel is assigned to a workgroup. -> the channel id = workgroup id
+    int num_ch            = gridDim.x; // so we know how many channels we have.
+    int img_size          = h * w;
+    int output_size       = out_h * out_w;
+    data_t* im_off = im + im_offset;
+
+    for(int lid_idx = lid; lid_idx < output_size; lid_idx += local_size)
+    {
+
+        int i = lid_idx / out_w; // coordinates within the image where we apply the filter
+        int j = lid_idx % out_w;
+
+        int patch_idx    = i * out_w + j;
+        int patch_size   = wei_h * wei_w * num_ch;
+        int patch_offset = patch_size * lid_idx;
+
+        for(int kh = 0; kh < wei_h; ++kh)
+        { // need to gather kernel sized amount of data to one patch
+            for(int kw = 0; kw < wei_w; ++kw)
+            {
+                int src_h =
+                    i * stride_h + kh * dilation_h - pad_h; // coordinates of the element, accessed
+                                                            // through the filter in the input image
+                int src_w = j * stride_w + kw * dilation_w - pad_w;
+
+                int col_idx = patch_offset + (kh * wei_w + kw) * num_ch + chan;
+
+                if(src_h >= 0 && src_h < h && src_w >= 0 && src_w < w)
+                {
+                    int input_idx = ((src_h * w + src_w) * num_ch) + chan;
+                    col[col_idx]  = IM_OFF_GUARD(input_idx);
+                }
+                else
+                {
+                    col[col_idx] = 0;
+                }
+            }
+        }
+    }
+}
+#else // LAYOUT_NHWC
 
 extern "C" __global__ void Im2d2Col_v2(const int data_size_off,
                                        data_t* im,
@@ -295,7 +374,7 @@ extern "C" __global__ void Im2d2Col_v2(const int data_size_off,
         inner_lid += 256;
     }
 #endif // NUM_IM_BLKS && STRIDE_GT_1
-#else
+#else  // Very large support 
 
     index_t tid = get_global_id(0);
     while(tid < (index_t)out_h * out_w * wei_w * wei_h * NUM_CH_TOTAL)
@@ -329,3 +408,4 @@ extern "C" __global__ void Im2d2Col_v2(const int data_size_off,
     }
 #endif
 }
+#endif // LAYOUT_NHWC else
