@@ -51,7 +51,7 @@ using index_t = uint32_t;
 
 
 #if (LAYOUT_NHWC == 1)
-extern "C" __global__  void Col2Im2dU( _FLOAT* col,
+extern "C" __global__  void Col2Im2dU( FLOAT* col,
                         const uint32_t col_h,
                         const uint32_t col_w,
                         const uint32_t wei_h,
@@ -62,25 +62,31 @@ extern "C" __global__  void Col2Im2dU( _FLOAT* col,
                         const uint32_t stride_w,
                         const uint32_t dilation_h,
                         const uint32_t dilation_w,
+                        const uint32_t channels,
                         const uint32_t height,
                         const uint32_t width,
-                         _FLOAT* im,
+                        FLOAT* im,
                         const uint32_t im_offset)
 {
-    global _FLOAT* im_off = im + im_offset;
+    FLOAT* im_off = im + im_offset;
 
-    const size_t gid         = blockIdx.x*bolckDim.x + threadIdx.x;
+    const size_t gid         = blockIdx.x*blockDim.x + threadIdx.x;
     const size_t global_size = blockDim.x*gridDim.x;
-    const uint32_t channels      = global_size / (height * width);
+    //const uint32_t channels      = global_size / (height * width);
 
     uint32_t c = gid % channels; // coordinates of the image's pixel handled by this thread
     uint32_t w = (gid / channels) % width;
     uint32_t h = gid / (channels * width);
 
+    unsigned int input_size = channels * height * width;
+
+    if(gid >= input_size)
+        return;
+
     if(h >= height || w >= width || c >= channels)
         return;
 
-    _FLOAT_ACCUM val = (_FLOAT_ACCUM)0;
+    FLOAT_ACCUM val = (FLOAT_ACCUM)0;
 
     // Loop over all possible (cy, fy) and (cx, fx) such that h = cy + fy and w = cx + fx
     // cx,cy - position in the conv output (dy) -- add the filter coordinates (fx,fy) -> you get the
