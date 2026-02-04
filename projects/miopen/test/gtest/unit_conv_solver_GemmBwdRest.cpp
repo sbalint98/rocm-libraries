@@ -50,7 +50,6 @@ auto GetConvTestCases(miopenDataType_t datatype)
         TestCase{{1, 3, 15, 15}, {3, 3, 3, 3}, {2, 2}, {2, 2}, {3, 3}, datatype}, // High dilation + stride + padding
         TestCase{{1, 7, 16, 16}, {7, 7, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Unusual channel counts
         TestCase{{1, 5, 16, 16}, {5, 5, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype},
-
         TestCase{{2, 8, 8, 8}, {8, 8, 3, 3}, {0, 0}, {1, 1}, {1, 1},datatype, miopenTensorNHWC},
         TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {2, 2}, {1, 1},datatype, miopenTensorNHWC}, // Strides
         TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {1, 1}, {2, 2},datatype, miopenTensorNHWC}, // Dilation
@@ -66,6 +65,16 @@ auto GetConvTestCases(miopenDataType_t datatype)
         TestCase{{1, 5, 16, 16}, {5, 5, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC},
         TestCase{{1, 128, 8, 8}, {128, 128, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // High channel count (stress test inner dim in NHWC)
         TestCase{{16, 16, 8, 8}, {16, 16, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // Large batch
+        TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {3, 3}, {1, 1}, {1, 1}, datatype}, // large padding
+        //TestCase{{1, 16, 32, 32}, {16, 16, 1, 1}, {0, 0}, {1, 1}, {1, 1}, datatype}, // 1x1 kernel (pointwise)
+        //TestCase{{1, 1, 1, 1}, {1, 1, 1, 1}, {0, 0}, {1, 1}, {1, 1}, datatype}, // Minimal input
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 2}, {1, 1}, {1, 1}, datatype}, // Uneven padding (asymmetric)
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {2, 1}, {1, 1}, datatype}, // Uneven stride
+        TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // Padding
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {3, 3}, {1, 1},datatype, miopenTensorNHWC}, // large stride
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {1, 1}, {3, 3},datatype, miopenTensorNHWC}, // high dilation
+        //TestCase{{1, 64, 2, 2}, {64, 64, 1, 1}, {0, 0}, {1, 1}, {1, 1}, datatype}, // Small spatial, large channels
+        TestCase{{0, 16, 8, 8}, {16, 16, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Zero batch
 
         // clang-format on
     };
@@ -75,7 +84,49 @@ auto GetConvTestCasesFull(miopenDataType_t datatype)
 {
     using TestCase = miopen::unit_tests::ConvTestCase;
 
-    auto cases = std::vector<TestCase>{};
+    auto cases = std::vector<TestCase>{
+        TestCase{{2, 8, 8, 8}, {8, 8, 3, 3}, {0, 0}, {1, 1}, {1, 1}, datatype},
+        TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Padding
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {2, 2}, {1, 1}, datatype}, // Strides
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {3, 3}, {1, 1}, datatype}, // large stride
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {1, 1}, {2, 2}, datatype}, // Dilation
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {1, 1}, {3, 3}, datatype}, // high dilation
+        TestCase{{1, 1, 4, 4}, {1, 1, 5, 5}, {0, 0}, {1, 1}, {1, 1}, datatype}, // kernel larger than input
+        TestCase{{1, 1, 4, 4}, {1, 1, 4, 4}, {0, 0}, {1, 1}, {1, 1}, datatype}, // kernel equal to input
+        TestCase{{1, 8, 10, 5}, {8, 8, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Non-square input
+        TestCase{{1, 8, 8, 8}, {8, 8, 3, 5}, {1, 2}, {1, 1}, {1, 1}, datatype}, // Non-square kernel
+        TestCase{{4, 8, 8, 8}, {8, 8, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Batch size > 1
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {1, 1}, {2, 3}, datatype}, // Uneven dilation
+        TestCase{{2, 32, 64, 64}, {32, 32, 5, 5}, {2, 2}, {1, 1}, {1, 1}, datatype}, // Large input size
+        TestCase{{1, 3, 15, 15}, {3, 3, 3, 3}, {2, 2}, {2, 2}, {3, 3}, datatype}, // High dilation + stride + padding
+        TestCase{{1, 7, 16, 16}, {7, 7, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Unusual channel counts
+        TestCase{{1, 5, 16, 16}, {5, 5, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype},
+        TestCase{{2, 8, 8, 8}, {8, 8, 3, 3}, {0, 0}, {1, 1}, {1, 1},datatype, miopenTensorNHWC},
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {2, 2}, {1, 1},datatype, miopenTensorNHWC}, // Strides
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {1, 1}, {2, 2},datatype, miopenTensorNHWC}, // Dilation
+        TestCase{{1, 1, 4, 4}, {1, 1, 5, 5}, {0, 0}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // kernel larger than input
+        TestCase{{1, 1, 4, 4}, {1, 1, 4, 4}, {0, 0}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // kernel equal to input
+        TestCase{{1, 8, 10, 5}, {8, 8, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // Non-square input
+        TestCase{{1, 8, 8, 8}, {8, 8, 3, 5}, {1, 2}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // Non-square kernel
+        TestCase{{4, 8, 8, 8}, {8, 8, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // Batch size > 1
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {1, 1}, {2, 3},datatype, miopenTensorNHWC}, // Uneven dilation
+        TestCase{{2, 32, 64, 64}, {32, 32, 5, 5}, {2, 2}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // Large input size
+        TestCase{{1, 3, 15, 15}, {3, 3, 3, 3}, {2, 2}, {2, 2}, {3, 3},datatype, miopenTensorNHWC}, // High dilation + stride + padding
+        TestCase{{1, 7, 16, 16}, {7, 7, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // Unusual channel counts
+        TestCase{{1, 5, 16, 16}, {5, 5, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC},
+        TestCase{{1, 128, 8, 8}, {128, 128, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // High channel count (stress test inner dim in NHWC)
+        TestCase{{16, 16, 8, 8}, {16, 16, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // Large batch
+        TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {3, 3}, {1, 1}, {1, 1}, datatype}, // large padding
+        //TestCase{{1, 16, 32, 32}, {16, 16, 1, 1}, {0, 0}, {1, 1}, {1, 1}, datatype}, // 1x1 kernel (pointwise)
+        //TestCase{{1, 1, 1, 1}, {1, 1, 1, 1}, {0, 0}, {1, 1}, {1, 1}, datatype}, // Minimal input
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 2}, {1, 1}, {1, 1}, datatype}, // Uneven padding (asymmetric)
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {2, 1}, {1, 1}, datatype}, // Uneven stride
+        TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // Padding
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {3, 3}, {1, 1},datatype, miopenTensorNHWC}, // large stride
+        TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {1, 1}, {3, 3},datatype, miopenTensorNHWC}, // high dilation
+        //TestCase{{1, 64, 2, 2}, {64, 64, 1, 1}, {0, 0}, {1, 1}, {1, 1}, datatype}, // Small spatial, large channels
+        TestCase{{0, 16, 8, 8}, {16, 16, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Zero batch
+    };
 
     if(datatype == miopenHalf)
     {
