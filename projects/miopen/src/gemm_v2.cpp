@@ -1534,10 +1534,11 @@ miopenStatus_t CallGemmStridedBatchedSequential(const Handle& handle,
 }
 
 // y = w * Im2Col(x)
-GemmDescriptor CreateGemmDescriptorConvFwd(const TensorDescriptor& wDesc,
-                                           const TensorDescriptor& xDesc,
-                                           const TensorDescriptor& yDesc)
+GemmDescriptor CreateGemmDescriptorConvFwd(const conv::ProblemDescription& problem)
 {
+decltype(auto) xDesc = problem.GetIn();
+decltype(auto) wDesc = problem.GetWeights();
+decltype(auto) yDesc = problem.GetOut();
 #ifndef NDEBUG
     assert(wDesc.GetType() == xDesc.GetType());
     if(wDesc.GetType() != miopenInt8)
@@ -1550,16 +1551,16 @@ GemmDescriptor CreateGemmDescriptorConvFwd(const TensorDescriptor& wDesc,
     auto wei_spatial = boost::adaptors::slice(wDesc.GetLengths(), 2, wDesc.GetLengths().size());
     auto out_spatial = boost::adaptors::slice(yDesc.GetLengths(), 2, yDesc.GetLengths().size());
 
-    bool isColMajor = false;
-    bool transA     = false;
-    bool transB     = (wDesc.GetType() == miopenInt8);
+    bool isColMajor = problem.IsLayoutNHWC();
+    bool transA     = problem.IsLayoutNHWC();
+    bool transB     = problem.IsLayoutNHWC() ? false : (wDesc.GetType() == miopenInt8);
     int m           = wei_k;
     int n = std::accumulate(out_spatial.begin(), out_spatial.end(), 1, std::multiplies<int>());
     int k =
         in_c * std::accumulate(wei_spatial.begin(), wei_spatial.end(), 1, std::multiplies<int>());
     int lda         = k;
-    int ldb         = wDesc.GetType() == miopenInt8 ? k : n;
-    int ldc         = n;
+    int ldb         = problem.IsLayoutNHWC() ? k : wDesc.GetType() == miopenInt8 ? k : n;
+    int ldc         = problem.IsLayoutNHWC() ? m : n;
     int batch_count = 1;
     auto strideA    = static_cast<long long>(0);
     auto strideB    = static_cast<long long>(0);

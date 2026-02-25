@@ -545,7 +545,7 @@ ConvSolution GemmFwd1x1_0_1_int8::GetSolution(const ExecutionContext& context,
 
     TensorDescriptor ygemmDesc(miopenInt32, yDesc.GetLengths(), yDesc.GetStrides());
     const GemmDescriptor tmp_gemm_desc = [&]() {
-        auto tmp          = CreateGemmDescriptorConvFwd(wDesc, xDesc, yDesc);
+        auto tmp          = CreateGemmDescriptorConvFwd(problem);
         tmp.deterministic = problem.GetConv().attribute.deterministic;
         if(problem.IsTensorsCasted())
         {
@@ -914,7 +914,7 @@ ConvSolution GemmFwdRest::GetSolution(const ExecutionContext& context,
         const auto tmp_gemm_desc = [&]() {
             auto tmp          = conv.group_count > 1
                                     ? CreateGemmDescriptorGroupConvFwd(wDesc, xDesc, yDesc, conv.group_count)
-                                    : CreateGemmDescriptorConvFwd(wDesc, xDesc, yDesc);
+                                    : CreateGemmDescriptorConvFwd(problem);
             tmp.deterministic = problem.GetConv().attribute.deterministic;
             if(problem.IsTensorsCasted())
             {
@@ -965,143 +965,83 @@ ConvSolution GemmFwdRest::GetSolution(const ExecutionContext& context,
                              std::to_string(workSpaceSize) + " provided, " +
                              std::to_string(workspace_req) + " required)");
             }
-
-            if(problem.IsLayoutNHWC())
+            for(std::size_t i = 0; i < in_n; i++)
             {
-                for(std::size_t i = 0; i < in_n; i++)
+                std::size_t out_offset = i * wei_k * out_spatial_size;
+                std::size_t in_offset  = i * in_c * in_spatial_size;
+
+                time_gemm += Im2ColGPU(handle,
+                                       spatial_dim,
+                                       x,
+                                       in_offset,
+                                       in_c,
+                                       in_spatial,
+                                       wei_spatial,
+                                       out_spatial,
+                                       conv.GetConvPads(),
+                                       conv.GetConvStrides(),
+                                       conv.GetConvDilations(),
+                                       workSpace,
+                                       xDesc.GetType(),
+                                       problem.IsLayoutNHWC());
+
+                std::size_t wksp_offset = 0;
+                if(wDesc.GetType() == miopenInt8 && !problem.IsLayoutNHWC())
                 {
-                    std::size_t out_offset = i * wei_k * out_spatial_size;
-                    std::size_t in_offset  = i * in_c * in_spatial_size;
+                    wksp_offset = in_c * wei_spatial_size * out_spatial_size;
 
-                    time_gemm += Im2ColGPU(handle,
-                                           spatial_dim,
-                                           x,
-                                           in_offset,
-                                           in_c,
-                                           in_spatial,
-                                           wei_spatial,
-                                           out_spatial,
-                                           conv.GetConvPads(),
-                                           conv.GetConvStrides(),
-                                           conv.GetConvDilations(),
-                                           workSpace,
-                                           xDesc.GetType(),
-                                           problem.IsLayoutNHWC());
-
-                    miopenStatus_t gemm_status = miopenStatusNotInitialized;
-
-                    // tensors.y = tensors.w * Im2Col(tensors.x)
-                    const auto gemm_desc = [&]() {
-                        auto tmp            = tmp_gemm_desc;
-                        tmp.gfx90a_alt_impl = conv_params.gfx90aFp16alt;
-                        tmp.transB          = true;
-                        tmp.m               = tmp_gemm_desc.n;
-                        tmp.n               = tmp_gemm_desc.m;
-                        tmp.k               = tmp_gemm_desc.k;
-                        tmp.lda             = tmp.k;
-                        tmp.ldb             = tmp.k;
-                        tmp.ldc             = tmp.n;
-                        return tmp;
-                    }();
-
-                    std::size_t wksp_offset = 0;
-                    gemm_status             = CallGemm(handle,
-                                           gemm_desc,
-                                           workSpace,
+                    transpose_packed_MN2NM(handle,
+                                           static_cast<int>(in_c * wei_spatial_size),
+                                           out_spatial_size,
                                            0,
+                                           wksp_offset,
+                                           workSpace,
+                                           workSpace,
+                                           xDesc.GetType());
+
+                    if(handle.IsProfilingEnabled())
+                        time_gemm += handle.GetKernelTime();
+                }
+
+                miopenStatus_t gemm_status = miopenStatusNotInitialized;
+
+                // tensors.y = tensors.w * Im2Col(tensors.x)
+                const auto gemm_desc = [&]() {
+                    auto tmp            = tmp_gemm_desc;
+                    tmp.gfx90a_alt_impl = conv_params.gfx90aFp16alt;
+                    return tmp;
+                }();
+
+                if(conv.group_count > 1)
+                {
+                    gemm_status = CallGemmStridedBatched(handle,
+                                                         gemm_desc,
+                                                         w,
+                                                         0,
+                                                         workSpace,
+                                                         0,
+                                                         y,
+                                                         out_offset,
+                                                         GemmBackend_t::rocblas);
+                }
+                else
+                {
+                    gemm_status = CallGemm(handle,
+                                           gemm_desc,
                                            w,
+                                           0,
+                                           workSpace,
                                            wksp_offset,
                                            y,
                                            out_offset,
                                            GemmBackend_t::rocblas);
-
-                    if(gemm_status != miopenStatusSuccess)
-                        MIOPEN_THROW("GEMM execution failure");
-
-                    if(handle.IsProfilingEnabled())
-                        time_gemm += handle.GetKernelTime();
                 }
-            }
-            else
-            {
-                for(std::size_t i = 0; i < in_n; i++)
-                {
-                    std::size_t out_offset = i * wei_k * out_spatial_size;
-                    std::size_t in_offset  = i * in_c * in_spatial_size;
 
-                    time_gemm += Im2ColGPU(handle,
-                                           spatial_dim,
-                                           x,
-                                           in_offset,
-                                           in_c,
-                                           in_spatial,
-                                           wei_spatial,
-                                           out_spatial,
-                                           conv.GetConvPads(),
-                                           conv.GetConvStrides(),
-                                           conv.GetConvDilations(),
-                                           workSpace,
-                                           xDesc.GetType(),
-                                           problem.IsLayoutNHWC());
+                if(gemm_status != miopenStatusSuccess)
+                    MIOPEN_THROW("GEMM execution failure");
 
-                    std::size_t wksp_offset = 0;
-                    if(wDesc.GetType() == miopenInt8)
-                    {
-                        wksp_offset = in_c * wei_spatial_size * out_spatial_size;
-
-                        transpose_packed_MN2NM(handle,
-                                               static_cast<int>(in_c * wei_spatial_size),
-                                               out_spatial_size,
-                                               0,
-                                               wksp_offset,
-                                               workSpace,
-                                               workSpace,
-                                               xDesc.GetType());
-
-                        if(handle.IsProfilingEnabled())
-                            time_gemm += handle.GetKernelTime();
-                    }
-
-                    miopenStatus_t gemm_status = miopenStatusNotInitialized;
-
-                    // tensors.y = tensors.w * Im2Col(tensors.x)
-                    const auto gemm_desc = [&]() {
-                        auto tmp            = tmp_gemm_desc;
-                        tmp.gfx90a_alt_impl = conv_params.gfx90aFp16alt;
-                        return tmp;
-                    }();
-
-                    if(conv.group_count > 1)
-                    {
-                        gemm_status = CallGemmStridedBatched(handle,
-                                                             gemm_desc,
-                                                             w,
-                                                             0,
-                                                             workSpace,
-                                                             0,
-                                                             y,
-                                                             out_offset,
-                                                             GemmBackend_t::rocblas);
-                    }
-                    else
-                    {
-                        gemm_status = CallGemm(handle,
-                                               gemm_desc,
-                                               w,
-                                               0,
-                                               workSpace,
-                                               wksp_offset,
-                                               y,
-                                               out_offset,
-                                               GemmBackend_t::rocblas);
-                    }
-
-                    if(gemm_status != miopenStatusSuccess)
-                        MIOPEN_THROW("GEMM execution failure");
-
-                    if(handle.IsProfilingEnabled())
-                        time_gemm += handle.GetKernelTime();
-                }
+                if(handle.IsProfilingEnabled())
+                    time_gemm += handle.GetKernelTime();
             }
             if(wDesc.GetType() == miopenInt8 && yDesc.GetType() != miopenInt32)
             {

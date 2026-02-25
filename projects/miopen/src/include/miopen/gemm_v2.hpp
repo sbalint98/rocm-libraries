@@ -28,6 +28,7 @@
 
 #include <miopen/common.hpp>
 #include <miopen/convolution.hpp>
+#include <miopen/conv/problem_description.hpp>
 #include <miopen/handle.hpp>
 #include <miopen/miopen.h>
 
@@ -151,9 +152,7 @@ CallGemmStridedBatchedSequential(const Handle& handle,
 
 // GEMM parameters for Convolution (using Im2Col) Fwd
 // y = w * Im2Col(x)
-GemmDescriptor CreateGemmDescriptorConvFwd(const TensorDescriptor& wDesc,
-                                           const TensorDescriptor& xDesc,
-                                           const TensorDescriptor& yDesc);
+GemmDescriptor CreateGemmDescriptorConvFwd(const conv::ProblemDescription& problem);
 
 // GEMM parameters for Convolution (using Im2Col) Bwd-Data
 // dx = Col2Im(transpose(w) * dy)
