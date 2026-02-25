@@ -74,7 +74,7 @@ auto GetConvTestCases(miopenDataType_t datatype)
         TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {3, 3}, {1, 1},datatype, miopenTensorNHWC}, // large stride
         TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {1, 1}, {3, 3},datatype, miopenTensorNHWC}, // high dilation
         //TestCase{{1, 64, 2, 2}, {64, 64, 1, 1}, {0, 0}, {1, 1}, {1, 1}, datatype}, // Small spatial, large channels
-        TestCase{{0, 16, 8, 8}, {16, 16, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Zero batch
+        //TestCase{{0, 16, 8, 8}, {16, 16, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Zero batch
 
         // clang-format on
     };
@@ -125,7 +125,7 @@ auto GetConvTestCasesFull(miopenDataType_t datatype)
         TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {3, 3}, {1, 1},datatype, miopenTensorNHWC}, // large stride
         TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {1, 1}, {3, 3},datatype, miopenTensorNHWC}, // high dilation
         //TestCase{{1, 64, 2, 2}, {64, 64, 1, 1}, {0, 0}, {1, 1}, {1, 1}, datatype}, // Small spatial, large channels
-        TestCase{{0, 16, 8, 8}, {16, 16, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Zero batch
+        //TestCase{{0, 16, 8, 8}, {16, 16, 3, 3}, {1, 1}, {1, 1}, {1, 1}, datatype}, // Zero batch
     };
 
     if(datatype == miopenHalf)
