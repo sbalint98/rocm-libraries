@@ -198,6 +198,25 @@ ConvTestCase::ConvTestCase(std::vector<size_t>&& x_,
 {
 }
 
+ConvTestCase::ConvTestCase(std::vector<size_t>&& x_,
+                           std::vector<size_t>&& w_,
+                           std::vector<int>&& pad_,
+                           std::vector<int>&& stride_,
+                           std::vector<int>&& dilation_,
+                           miopenDataType_t type_x_,
+                           miopenDataType_t type_w_,
+                           miopenDataType_t type_y_,
+                           miopenTensorLayout_t layout_x_,
+                           miopenTensorLayout_t layout_w_,
+                           int number_of_groups)
+    : ConvTestCase(
+          TensorDescriptorParams{type_x_, layout_x_, std::move(x_)},
+          TensorDescriptorParams{type_w_, layout_w_, std::move(w_)},
+          type_y_,
+          ConvolutionDescriptorParams{std::move(pad_), std::move(stride_), std::move(dilation_), number_of_groups})
+{
+}
+
 miopen::TensorDescriptor ConvTestCase::GetXTensorDescriptor() const
 {
     return x.GetTensorDescriptor();
