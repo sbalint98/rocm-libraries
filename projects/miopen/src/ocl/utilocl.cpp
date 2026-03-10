@@ -58,11 +58,18 @@ float Im2d2ColGPU(const Handle& handle,
                   const int dilation_w,
                   Data_t col,
                   miopenDataType_t type,
-                  bool layoutNHWC)
+                  bool layoutNHWC,
+                  const int channel_offset = 0,
+                  const int channels_per_group = 0,
+                  bool use_channel_offset = false)
 {
     std::string program_name = "MIOpenIm2d2Col.cpp";
-    std::string kernel_name  = "Im2d2Col_v2";
-    std::string layout_str   = layoutNHWC ? "NHWC" : "NCHW";
+    std::string kernel_name;
+    if  (layoutNHWC && use_channel_offset){
+        kernel_name  = "Im2d2Col_v2_grouped";
+    } else {
+        kernel_name  = "Im2d2Col_v2";
+    }    std::string layout_str   = layoutNHWC ? "NHWC" : "NCHW";
 
 
     // clang-format off
@@ -79,6 +86,8 @@ float Im2d2ColGPU(const Handle& handle,
         "d" + std::to_string(dilation_h) +
         "_" + std::to_string(dilation_w) +
         "t" + std::to_string(type) +
+        "cho" + std::to_string(use_channel_offset) +
+        "chpg" + std::to_string(channels_per_group) +
         "layout" + layout_str;
     // clang-format on
 
@@ -203,9 +212,17 @@ float Im2d2ColGPU(const Handle& handle,
         params += GetDataTypeKernelParams(type);
 
         params += " -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC));
-
+        if(layoutNHWC && use_channel_offset)
+        {
+            params += " -DUSE_CHANNEL_OFFSET";
+        }
         const int group_size_x = 256;
         size_t group_cnt = std::max(1, (c_pack / num_ch_per_wg)) * static_cast<size_t>(num_blks);
+        if(layoutNHWC && use_channel_offset)
+        {
+            group_cnt = std::max(1, (channels_per_group / num_ch_per_wg)) * static_cast<size_t>(num_blks);
+        }
+        
         size_t global_threads = group_size_x * group_cnt;
 
         bool use_64bit_buffer_index = false;
@@ -270,27 +287,201 @@ float Im2d2ColGPU(const Handle& handle,
         const std::vector<size_t> vld{group_size_x, 1, 1};
         if(layoutNHWC)
         {
-            const std::vector<size_t> vgd{c * std::size_t{group_size_x}, 1, 1};
+            if(use_channel_offset)
+            {
+                const std::vector<size_t> vgd{channels_per_group * std::size_t{group_size_x}, 1, 1};
+                handle.AddKernel(
+                    "miopenIm2Col", network_config, program_name, kernel_name, vld, vgd, params)(
+                    data_size_bound,
+                    im,
+                    im_offset,
+                    in_h,
+                    in_w,
+                    wei_h,
+                    wei_w,
+                    out_h,
+                    out_w,
+                    pad_h,
+                    pad_w,
+                    stride_h,
+                    stride_w,
+                    dilation_h,
+                    dilation_w,
+                    channel_offset,
+                    c,
+                    col);
+            }
+            else
+            {
+                // CHANNEL BASED VERSION
+                const bool use_channel_based = false;
+                const bool use_aligned       = true;
+                params += " -DWEI_H=" + std::to_string(wei_h);
+                params += " -DWEI_W=" + std::to_string(wei_w);
+                params += " -DCHANNELS=" + std::to_string(c);
 
-            handle.AddKernel(
-                "miopenIm2Col", network_config, program_name, kernel_name, vld, vgd, params)(
-                data_size_bound,
-                im,
-                im_offset,
-                in_h,
-                in_w,
-                wei_h,
-                wei_w,
-                out_h,
-                out_w,
-                pad_h,
-                pad_w,
-                stride_h,
-                stride_w,
-                dilation_h,
-                dilation_w,
-                col);
+                std::vector<size_t> vgd;
+
+                const int bytes_per_pixel = c * get_data_size(type);
+                // TODO: Currently, we just pick whatever. In theory this
+                // should correspond with the cache line size for maximum
+                // efficiency.
+                const int min_aligned_bytes = 16;
+
+                bool selected = false;
+
+                if(use_channel_based)
+                {
+                    params += " -DUSE_CHANNEL_BASED";
+
+                    const int tile_out_h = 16;
+                    const int tile_out_w = 16;
+                    params += " -DTILE_OUT_H=" + std::to_string(tile_out_h);
+                    params += " -DTILE_OUT_W=" + std::to_string(tile_out_w);
+
+                    const int tiles_out_h = integer_division_ceil(out_h, tile_out_h);
+                    const int tiles_out_w = integer_division_ceil(out_w, tile_out_w);
+
+                    vgd = {
+                        c * std::size_t{group_size_x}, tiles_out_h, tiles_out_w}; // channel based
+                    selected = true;
+                }
+                else if(use_aligned && bytes_per_pixel >= min_aligned_bytes &&
+                        bytes_per_pixel % min_aligned_bytes == 0)
+                {
+                    params += " -DMANY_CHANNELS";
+
+                    // Arbitrary chosen: We expect the kernel to not use a lot of
+                    // registers and have the maximum occupancy, therefore we can
+                    // schedule at least 4 (with group_size_x hardcoded to 256) kernels
+                    // on a single CU. Most AMD GPUs have in the order of 100-300 CUs,
+                    // and we want to have at least one block for CU. This seems like
+                    // a decent random value.
+                    // TODO: This should be based on the GPU's CU count.
+                    const int min_blocks = 256;
+
+                    int items_per_thread = 0;
+                    int threads_per_ch   = 0;
+                    bool flatten_k_w     = false;
+                    bool flatten_k_h     = false;
+                    size_t blocks        = 0;
+
+                    // Vary the bytes per thread so that we can reduce it if we don't have
+                    // enough blocks.
+                    for(int bytes_per_thread : {16, 8, 4})
+                    {
+                        if(bytes_per_thread < get_data_size(type))
+                        {
+                            // Note: If the data type is too large for a single thread,
+                            // just use the last configuration. This loop and the flatten k_h/k_w
+                            // conditions are structured such that the block size should only
+                            // increase, so if we exit here we either have no valid kernel (if the
+                            // datatype size is larger than 16 bytes) or have a valid kernel of a
+                            // larger bytes-per-thread count (otherwise).
+                            break;
+                        }
+
+                        assert(bytes_per_pixel % bytes_per_thread == 0);
+                        assert(min_aligned_bytes % bytes_per_thread == 0);
+
+                        items_per_thread = bytes_per_thread / get_data_size(type);
+                        assert(c % items_per_thread == 0);
+                        threads_per_ch = c / items_per_thread;
+
+                        vgd    = {static_cast<size_t>(threads_per_ch) * out_w * out_h,
+                                  1,
+                                  1}; // outputpixel based, many channels
+                        blocks = integer_division_ceil(vgd[0], vld[0]);
+
+                        flatten_k_w = false;
+                        flatten_k_h = false;
+
+                        // If we don't have enough blocks, flatten one of the kernel dimensions.
+                        // Note: Flatten W first since its the inner loop.
+                        if(blocks < min_blocks)
+                        {
+                            flatten_k_w = true;
+                            vgd[1]      = wei_w;
+                            blocks *= integer_division_ceil(vgd[1], vld[1]);
+                        }
+
+                        // If we STILL don't have enough blocks, flatten the other dimension
+                        if(blocks < min_blocks)
+                        {
+                            flatten_k_h = true;
+                            vgd[2]      = wei_h;
+                            blocks *= integer_division_ceil(vgd[2], vld[2]);
+                        }
+
+                        if(blocks >= min_blocks)
+                        {
+                            break;
+                        }
+                    }
+
+                    if(items_per_thread == 0)
+                    {
+                        // We didn't manage to find a kernel that applies at all
+                        // fall back to another implementation.
+                        selected = false;
+                    }
+                    else
+                    {
+                        std::cout << "items per thread: " << items_per_thread << std::endl;
+                        std::cout << "threads per channel: " << threads_per_ch << std::endl;
+                        std::cout << "blocks: " << blocks << std::endl;
+
+                        params += " -DITEMS_PER_THREAD=" + std::to_string(items_per_thread);
+                        params += " -DTHREADS_PER_CH=" + std::to_string(threads_per_ch);
+
+                        if(flatten_k_h)
+                        {
+                            params += " -DFLATTEN_WEI_W";
+                            std::cout << "flattening weights W" << std::endl;
+                        }
+
+                        if(flatten_k_w)
+                        {
+                            params += " -DFLATTEN_WEI_H";
+                            std::cout << "flattening weights H" << std::endl;
+                        }
+
+                        selected = true;
+                    }
+                }
+
+                if(!selected)
+                {
+                    // OUTPUT PIXEL BASED VERSION
+                    vgd      = {static_cast<size_t>(out_h) * out_w * group_size_x,
+                                1,
+                                1}; // outputpixel based
+                    selected = true;
+                }
+
+                assert(vgd.size() == 3);
+
+                handle.AddKernel(
+                    "miopenIm2Col", network_config, program_name, kernel_name, vld, vgd, params)(
+                    data_size_bound,
+                    im,
+                    im_offset,
+                    in_h,
+                    in_w,
+                    wei_h,
+                    wei_w,
+                    out_h,
+                    out_w,
+                    pad_h,
+                    pad_w,
+                    stride_h,
+                    stride_w,
+                    dilation_h,
+                    dilation_w,
+                    col);
+            }
         }
+
         else
         {
             const std::vector<size_t> vgd{global_threads, 1, 1};
@@ -698,7 +889,10 @@ float Im2ColGPU(
     const std::vector<int>& dilation_spatial,
     Data_t col,
     miopenDataType_t type,
-    bool layoutNHWC)
+    bool layoutNHWC,
+    int channel_offset,
+    int in_c_per_group,
+    bool use_channel_offset)
 {
     switch(spatial_dim)
     {
@@ -721,7 +915,10 @@ float Im2ColGPU(
                            dilation_spatial[1],
                            col,
                            type,
-                           layoutNHWC);
+                           layoutNHWC,
+                           channel_offset,
+                           in_c_per_group,
+                           use_channel_offset);
     }
     case 3: {
         return Im3d2ColGPU(handle,
@@ -747,7 +944,11 @@ float Im2ColGPU(
                            dilation_spatial[1],
                            dilation_spatial[2],
                            col,
-                           type);
+                           type,
+                           layoutNHWC,
+                           channel_offset,
+                           in_c_per_group,
+                           use_channel_offset);
     }
     default: {
         MIOPEN_THROW("unsupported convolution dimension");
