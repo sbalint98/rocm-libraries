@@ -28,11 +28,13 @@
 #include <miopen/kernel_cache.hpp>
 #include <miopen/logger.hpp>
 #include <miopen/util.hpp>
+#include <miopen/tensor.hpp>
 
 #include <boost/range/adaptors.hpp>
 
 #include <cmath>
 #include <cstdint>
+#include <cassert>
 
 #define WG_SIZE (static_cast<size_t>(256))
 #define MAX_ACTIVE_THREADS (64 * 4 * 64)
@@ -346,109 +348,109 @@ float Im2d2ColGPU(const Handle& handle,
                         c * std::size_t{group_size_x}, tiles_out_h, tiles_out_w}; // channel based
                     selected = true;
                 }
-                else if(use_aligned && bytes_per_pixel >= min_aligned_bytes &&
-                        bytes_per_pixel % min_aligned_bytes == 0)
-                {
-                    params += " -DMANY_CHANNELS";
+                // else if(use_aligned && bytes_per_pixel >= min_aligned_bytes &&
+                //         bytes_per_pixel % min_aligned_bytes == 0)
+                // {
+                //     params += " -DMANY_CHANNELS";
 
-                    // Arbitrary chosen: We expect the kernel to not use a lot of
-                    // registers and have the maximum occupancy, therefore we can
-                    // schedule at least 4 (with group_size_x hardcoded to 256) kernels
-                    // on a single CU. Most AMD GPUs have in the order of 100-300 CUs,
-                    // and we want to have at least one block for CU. This seems like
-                    // a decent random value.
-                    // TODO: This should be based on the GPU's CU count.
-                    const int min_blocks = 256;
+                //     // Arbitrary chosen: We expect the kernel to not use a lot of
+                //     // registers and have the maximum occupancy, therefore we can
+                //     // schedule at least 4 (with group_size_x hardcoded to 256) kernels
+                //     // on a single CU. Most AMD GPUs have in the order of 100-300 CUs,
+                //     // and we want to have at least one block for CU. This seems like
+                //     // a decent random value.
+                //     // TODO: This should be based on the GPU's CU count.
+                //     const int min_blocks = 256;
 
-                    int items_per_thread = 0;
-                    int threads_per_ch   = 0;
-                    bool flatten_k_w     = false;
-                    bool flatten_k_h     = false;
-                    size_t blocks        = 0;
+                //     int items_per_thread = 0;
+                //     int threads_per_ch   = 0;
+                //     bool flatten_k_w     = false;
+                //     bool flatten_k_h     = false;
+                //     size_t blocks        = 0;
 
-                    // Vary the bytes per thread so that we can reduce it if we don't have
-                    // enough blocks.
-                    for(int bytes_per_thread : {16, 8, 4})
-                    {
-                        if(bytes_per_thread < get_data_size(type))
-                        {
-                            // Note: If the data type is too large for a single thread,
-                            // just use the last configuration. This loop and the flatten k_h/k_w
-                            // conditions are structured such that the block size should only
-                            // increase, so if we exit here we either have no valid kernel (if the
-                            // datatype size is larger than 16 bytes) or have a valid kernel of a
-                            // larger bytes-per-thread count (otherwise).
-                            break;
-                        }
+                //     // Vary the bytes per thread so that we can reduce it if we don't have
+                //     // enough blocks.
+                //     for(int bytes_per_thread : {16, 8, 4})
+                //     {
+                //         if(bytes_per_thread < get_data_size(type))
+                //         {
+                //             // Note: If the data type is too large for a single thread,
+                //             // just use the last configuration. This loop and the flatten k_h/k_w
+                //             // conditions are structured such that the block size should only
+                //             // increase, so if we exit here we either have no valid kernel (if the
+                //             // datatype size is larger than 16 bytes) or have a valid kernel of a
+                //             // larger bytes-per-thread count (otherwise).
+                //             break;
+                //         }
 
-                        assert(bytes_per_pixel % bytes_per_thread == 0);
-                        assert(min_aligned_bytes % bytes_per_thread == 0);
+                //         assert(bytes_per_pixel % bytes_per_thread == 0);
+                //         assert(min_aligned_bytes % bytes_per_thread == 0);
 
-                        items_per_thread = bytes_per_thread / get_data_size(type);
-                        assert(c % items_per_thread == 0);
-                        threads_per_ch = c / items_per_thread;
+                //         items_per_thread = bytes_per_thread / get_data_size(type);
+                //         assert(c % items_per_thread == 0);
+                //         threads_per_ch = c / items_per_thread;
 
-                        vgd    = {static_cast<size_t>(threads_per_ch) * out_w * out_h,
-                                  1,
-                                  1}; // outputpixel based, many channels
-                        blocks = integer_division_ceil(vgd[0], vld[0]);
+                //         vgd    = {static_cast<size_t>(threads_per_ch) * out_w * out_h,
+                //                   1,
+                //                   1}; // outputpixel based, many channels
+                //         blocks = integer_division_ceil(vgd[0], vld[0]);
 
-                        flatten_k_w = false;
-                        flatten_k_h = false;
+                //         flatten_k_w = false;
+                //         flatten_k_h = false;
 
-                        // If we don't have enough blocks, flatten one of the kernel dimensions.
-                        // Note: Flatten W first since its the inner loop.
-                        if(blocks < min_blocks)
-                        {
-                            flatten_k_w = true;
-                            vgd[1]      = wei_w;
-                            blocks *= integer_division_ceil(vgd[1], vld[1]);
-                        }
+                //         // If we don't have enough blocks, flatten one of the kernel dimensions.
+                //         // Note: Flatten W first since its the inner loop.
+                //         if(blocks < min_blocks)
+                //         {
+                //             flatten_k_w = true;
+                //             vgd[1]      = wei_w;
+                //             blocks *= integer_division_ceil(vgd[1], vld[1]);
+                //         }
 
-                        // If we STILL don't have enough blocks, flatten the other dimension
-                        if(blocks < min_blocks)
-                        {
-                            flatten_k_h = true;
-                            vgd[2]      = wei_h;
-                            blocks *= integer_division_ceil(vgd[2], vld[2]);
-                        }
+                //         // If we STILL don't have enough blocks, flatten the other dimension
+                //         if(blocks < min_blocks)
+                //         {
+                //             flatten_k_h = true;
+                //             vgd[2]      = wei_h;
+                //             blocks *= integer_division_ceil(vgd[2], vld[2]);
+                //         }
 
-                        if(blocks >= min_blocks)
-                        {
-                            break;
-                        }
-                    }
+                //         if(blocks >= min_blocks)
+                //         {
+                //             break;
+                //         }
+                //     }
 
-                    if(items_per_thread == 0)
-                    {
-                        // We didn't manage to find a kernel that applies at all
-                        // fall back to another implementation.
-                        selected = false;
-                    }
-                    else
-                    {
-                        std::cout << "items per thread: " << items_per_thread << std::endl;
-                        std::cout << "threads per channel: " << threads_per_ch << std::endl;
-                        std::cout << "blocks: " << blocks << std::endl;
+                //     if(items_per_thread == 0)
+                //     {
+                //         // We didn't manage to find a kernel that applies at all
+                //         // fall back to another implementation.
+                //         selected = false;
+                //     }
+                //     else
+                //     {
+                //         std::cout << "items per thread: " << items_per_thread << std::endl;
+                //         std::cout << "threads per channel: " << threads_per_ch << std::endl;
+                //         std::cout << "blocks: " << blocks << std::endl;
 
-                        params += " -DITEMS_PER_THREAD=" + std::to_string(items_per_thread);
-                        params += " -DTHREADS_PER_CH=" + std::to_string(threads_per_ch);
+                //         params += " -DITEMS_PER_THREAD=" + std::to_string(items_per_thread);
+                //         params += " -DTHREADS_PER_CH=" + std::to_string(threads_per_ch);
 
-                        if(flatten_k_h)
-                        {
-                            params += " -DFLATTEN_WEI_W";
-                            std::cout << "flattening weights W" << std::endl;
-                        }
+                //         if(flatten_k_h)
+                //         {
+                //             params += " -DFLATTEN_WEI_W";
+                //             std::cout << "flattening weights W" << std::endl;
+                //         }
 
-                        if(flatten_k_w)
-                        {
-                            params += " -DFLATTEN_WEI_H";
-                            std::cout << "flattening weights H" << std::endl;
-                        }
+                //         if(flatten_k_w)
+                //         {
+                //             params += " -DFLATTEN_WEI_H";
+                //             std::cout << "flattening weights H" << std::endl;
+                //         }
 
-                        selected = true;
-                    }
-                }
+                //         selected = true;
+                //     }
+                // }
 
                 if(!selected)
                 {
@@ -536,7 +538,11 @@ float Im3d2ColGPU(const Handle& handle,
                   const int dilation_h,
                   const int dilation_w,
                   Data_t col,
-                  miopenDataType_t type)
+                  miopenDataType_t type,
+                  bool layoutNHWC,
+                  int channel_offset,
+                  int in_c_per_group,
+                  bool use_channel_offset)
 {
     std::string program_name = "MIOpenIm3d2Col.cpp";
     std::string kernel_name  = "Im3d2Col";

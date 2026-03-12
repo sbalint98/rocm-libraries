@@ -50,9 +50,9 @@ Im2ColGPU(const Handle& handle,
           Data_t col,
           miopenDataType_t type,
           bool layoutNHWC,
-        int channel_offset = 0,
-        int in_c_per_group = 0,
-        bool use_channel_offset = false);
+          int channel_offset = 0,
+          int in_c_per_group = 0,
+          bool use_channel_offset = false);
 
 MIOPEN_INTERNALS_EXPORT float
 Col2ImGPU(const Handle& handle,

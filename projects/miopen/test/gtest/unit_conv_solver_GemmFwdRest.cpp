@@ -62,13 +62,13 @@ auto GetConvTestCases(miopenDataType_t datatype)
         TestCase{{1, 3, 2, 2}, {4, 3, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
         TestCase{{1, 3, 24, 24}, {4, 3, 5, 5}, {3, 3}, {2, 2}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
         TestCase{{2, 8, 16, 16}, {16, 8, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
-        TestCase{{1, 16, 64, 64}, {32, 16, 5, 5}, {2, 2}, {1, 1}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+           TestCase{{1, 16, 64, 64}, {32, 16, 5, 5}, {2, 2}, {1, 1}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
         TestCase{{1, 3, 14, 14}, {4, 3, 3, 3}, {2, 2}, {1, 1}, {3, 3}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
-        TestCase{{1, 8, 32, 32}, {16, 8, 3, 3}, {1, 1}, {4, 4}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
+           TestCase{{1, 8, 32, 32}, {16, 8, 3, 3}, {1, 1}, {4, 4}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
         TestCase{{1, 3, 28, 28}, {6, 3, 5, 5}, {2, 2}, {3, 3}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
         TestCase{{1, 3, 20, 20}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {5, 5}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC},
         TestCase{{1, 64, 2, 2}, {64, 64, 2, 2}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}, // Small spatial, large channels
-        TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {3, 3}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}, // large padding
+           TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {3, 3}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}, // large padding
         TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 2}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}, // Uneven padding (asymmetric)
         TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {2, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}, // Uneven stride
         TestCase{{1, 4, 16, 16}, {4, 2, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNCHW,miopenTensorNCHW, 2}, // NCHW grouped conv

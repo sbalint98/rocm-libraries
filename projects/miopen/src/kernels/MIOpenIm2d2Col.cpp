@@ -119,43 +119,46 @@ using index_t = int32_t;
 
 #if (LAYOUT_NHWC == 1)
 
-  
+#ifdef USE_CHANNEL_OFFSET
 
-  
-extern "C" __global__ void Im2d2Col_v2(const int data_size_off,
-                        data_t* im,
-                        const uint64_t im_offset,
-                        const int h,
-                        const int w,
-                        const int wei_h,
-                        const int wei_w,
-                        const int out_h,
-                        const int out_w,
-                        const int pad_h,
-                        const int pad_w,
-                        const int stride_h,
-                        const int stride_w,
-                        const int dilation_h,
-                        const int dilation_w,
-                        const int channel_offset,
-                        const int global_channels,
-                        data_t* col)
+extern "C" __global__ void Im2d2Col_v2_grouped(const int data_size_off,
+                                               data_t* im,
+                                               const uint64_t im_offset,
+                                               const int h,
+                                               const int w,
+                                               const int wei_h,
+                                               const int wei_w,
+                                               const int out_h,
+                                               const int out_w,
+                                               const int pad_h,
+                                               const int pad_w,
+                                               const int stride_h,
+                                               const int stride_w,
+                                               const int dilation_h,
+                                               const int dilation_w,
+                                               const int channel_offset,
+                                               const int global_channels,
+                                               data_t* col)
 {
-    if (gid >= num_out) return;
+    const index_t gid     = (index_t)blockIdx.x * blockDim.x + threadIdx.x;
+    const int num_out = out_h * out_w;
+
+    if(gid >= num_out) return;
 
     const int y = gid / out_w;
     const int x = gid - y * out_w;
 
     // NHWC linear index for the (y, x, channel_offset) element
     // im_offset is in elements (not bytes)
-    const ulong im_idx = im_offset
-                       + ((ulong)y * (ulong)w + (ulong)x) * (ulong)global_channels
-                       + (ulong)channel_offset;
+    const uint64_t im_idx = im_offset
+                           + ((uint64_t)y * (uint64_t)w + (uint64_t)x) * (uint64_t)global_channels
+                           + (uint64_t)channel_offset;
 
     // For 1x1 and one channel per group, the im2col "matrix" has 1 row
     col[gid] = im[im_idx];
-
 }
+
+#endif // USE_CHANNEL_OFFSET
 
 #ifdef USE_CHANNEL_BASED // Channel based execution with tiling, shared memory
 
@@ -163,30 +166,32 @@ extern "C" __global__ void Im2d2Col_v2(const int data_size_off,
 #define LOCAL_MEM_SIZE 65536
 #endif
 
-kernel void Im2d2Col_v2(const int  data_size_off,
-                        global data_t* im,
-                        const ulong im_offset,
-                        const int  h,
-                        const int  w,
-                        const int  wei_h,
-                        const int  wei_w,
-                        const int  out_h,
-                        const int  out_w,
-                        const int  pad_h,
-                        const int  pad_w,
-                        const int  stride_h,
-                        const int  stride_w,
-                        const int  dilation_h,
-                        const int  dilation_w,
-                        global data_t* col)
+extern "C" __global__ void Im2d2Col_v2(const int  data_size_off,
+                                        data_t* im,
+                                        const uint64_t im_offset,
+                                        const int  h,
+                                        const int  w,
+                                        const int  wei_h,
+                                        const int  wei_w,
+                                        const int  out_h,
+                                        const int  out_w,
+                                        const int  pad_h,
+                                        const int  pad_w,
+                                        const int  stride_h,
+                                        const int  stride_w,
+                                        const int  dilation_h,
+                                        const int  dilation_w,
+                                        data_t* col)
 {
-    const int lid    = get_local_id(0);
-    const int lsize  = get_local_size(0);
-    const int chan   = get_group_id(0);     // one work-group per channel
-    const int tile_h = get_group_id(1);
-    const int tile_w = get_group_id(2);
+    const int lid    = threadIdx.x;
+    const int lsize  = blockDim.x;
+    const int chan   = blockIdx.x;     // one work-group per channel
+    const int tile_h = blockIdx.y;
+    const int tile_w = blockIdx.z;
 
-        // One column per output pixel: rows = wei_h * wei_w * num_ch
+    data_t* im_off = im + im_offset;
+
+    // One column per output pixel: rows = wei_h * wei_w * num_ch
     const int patch_size = WEI_H * WEI_W * CHANNELS;
 
     const int base_oh = tile_h * TILE_OUT_H;
@@ -194,7 +199,7 @@ kernel void Im2d2Col_v2(const int  data_size_off,
 
     // LDS buffer for the single-channel input region required by a tile.
     // We index it as a 2D [im_rows_wg][im_cols_wg] flattened into 1D.
-    local data_t lds[LOCAL_MEM_SIZE];
+    __shared__ data_t lds[LOCAL_MEM_SIZE];
 
     const int out_rows_wg = min((int)TILE_OUT_H, out_h - base_oh);
     const int out_cols_wg = min((int)TILE_OUT_W, out_w - base_ow);
@@ -232,7 +237,7 @@ kernel void Im2d2Col_v2(const int  data_size_off,
         }
         lds[r * im_cols_wg + c] = v;
     }
-    barrier(CLK_LOCAL_MEM_FENCE);
+    __syncthreads();
 
     // --- Produce im2col entries for all outputs in this tile ---
     // NOTE(robin): dynamic loop, lid based
@@ -252,6 +257,7 @@ kernel void Im2d2Col_v2(const int  data_size_off,
             // at (oy*stride + kh*dilation, ox*stride + kw*dilation) in the staged tile.
             #pragma clang loop unroll(full)
             for(int kh = 0; kh < WEI_H; ++kh)
+            {
                 const int im_r = oy * stride_h + kh * dilation_h;
                 #pragma clang loop unroll(full)
                 for(int kw = 0; kw < WEI_W; ++kw)
@@ -272,10 +278,10 @@ kernel void Im2d2Col_v2(const int  data_size_off,
 
 #elif defined(MANY_CHANNELS)
 
-kernel void Im2d2Col_v2(
+extern "C" __global__ void Im2d2Col_v2(
     const int data_size_off,
-    global data_t* im,
-    const ulong im_offset,
+    data_t* im,
+    const uint64_t im_offset,
     const int h,
     const int w,
     const int wei_h,
@@ -288,47 +294,47 @@ kernel void Im2d2Col_v2(
     const int stride_w,
     const int dilation_h,
     const int dilation_w,
-    global data_t* col)
+    data_t* col)
 {
-    global data_t* im_off = im + im_offset;
+    data_t* im_off = im + im_offset;
 
-    const index_t idx = get_global_id(0);
+    const index_t idx    = (index_t)blockIdx.x * blockDim.x + threadIdx.x;
     const index_t grp_id = idx / THREADS_PER_CH;
     const int base_c     = idx % THREADS_PER_CH * ITEMS_PER_THREAD;
     const int out_x      = grp_id % w;
     const int out_y      = grp_id / w;
 
-    if (grp_id >= (index_t) out_w * out_h)
+    if(grp_id >= (index_t)out_w * out_h)
     {
         return;
     }
 
-    const index_t patch_size = (index_t) WEI_H * WEI_W * CHANNELS;
+    const index_t patch_size   = (index_t)WEI_H * WEI_W * CHANNELS;
     const index_t patch_offset = grp_id * patch_size;
 
 #ifdef FLATTEN_WEI_H
-    const int k_y = get_group_id(2);
+    const int k_y = blockIdx.z;
 #else
     #pragma clang loop unroll(full)
     for(int k_y = 0; k_y < WEI_H; ++k_y)
 #endif
     {
-        const int src_y = out_y * stride_h + k_y * dilation_h - pad_h;
+        const int src_y    = out_y * stride_h + k_y * dilation_h - pad_h;
         const int src_y_ok = (src_y >= 0) & (src_y < h);
 
 #ifdef FLATTEN_WEI_W
-        const int k_x = get_group_id(1);
+        const int k_x = blockIdx.y;
 #else
         #pragma clang loop unroll(full)
         for(int k_x = 0; k_x < WEI_W; ++k_x)
 #endif
         {
-            const int src_x = out_x * stride_w + k_x * dilation_w - pad_w;
+            const int src_x    = out_x * stride_w + k_x * dilation_w - pad_w;
             const int src_x_ok = (src_x >= 0) & (src_x < w);
             data_t channel_data[ITEMS_PER_THREAD];
-            if (src_x_ok & src_y_ok)
+            if(src_x_ok & src_y_ok)
             {
-                const index_t base_input = ((index_t) src_y * w + src_x) * CHANNELS + base_c;
+                const index_t base_input = ((index_t)src_y * w + src_x) * CHANNELS + base_c;
 
                 #pragma clang loop unroll(full)
                 for(int i = 0; i < ITEMS_PER_THREAD; ++i) {
@@ -340,11 +346,11 @@ kernel void Im2d2Col_v2(
                 #pragma clang loop unroll(full)
                 for(int i = 0; i < ITEMS_PER_THREAD; ++i)
                 {
-                    channel_data[i] = (data_t) 0;
+                    channel_data[i] = (data_t)0;
                 }
             }
 
-            const index_t base_col = patch_offset + ((index_t) k_y * WEI_W + k_x) * CHANNELS + base_c;
+            const index_t base_col = patch_offset + ((index_t)k_y * WEI_W + k_x) * CHANNELS + base_c;
 
             #pragma clang loop unroll(full)
             for(int i = 0; i < ITEMS_PER_THREAD; ++i)
@@ -355,12 +361,12 @@ kernel void Im2d2Col_v2(
     }
 }
 
-#else // outputpixel based implementation
+#else // output-pixel based implementation
 
-kernel void Im2d2Col_v2(
+extern "C" __global__ void Im2d2Col_v2(
                         const int data_size_off,
-                        global data_t* im,
-                        const ulong im_offset,
+                        data_t* im,
+                        const uint64_t im_offset,
                         const int h,
                         const int w,
                         const int wei_h,
@@ -373,18 +379,18 @@ kernel void Im2d2Col_v2(
                         const int stride_w,
                         const int dilation_h,
                         const int dilation_w,
-                        global data_t* col)
+                        data_t* col)
 {
-    const int lid        = get_local_id(0);
-    const int grp_id     = get_group_id(0);   // patch id (one output pixel)
-    const int local_size = get_local_size(0);
+    const int lid        = threadIdx.x;
+    const int grp_id     = blockIdx.x;   // patch id (one output pixel)
+    const int local_size = blockDim.x;
 
-    global data_t* im_off = im + im_offset;
+    data_t* im_off = im + im_offset;
 
     const int output_size = out_h * out_w;
     if(grp_id >= output_size) return;
 
-    //this workgroup's output pixel
+    // this workgroup's output pixel
     const int oh = grp_id / out_w;
     const int ow = grp_id % out_w;
 
@@ -612,9 +618,9 @@ extern "C" __global__ void Im2d2Col_v2(const int data_size_off,
         inner_lid += 256;
     }
 #endif // NUM_IM_BLKS && STRIDE_GT_1
-#else  // Very large support 
+#else  // Very large support
 
-    index_t tid = get_global_id(0);
+    index_t tid = (index_t)blockIdx.x * blockDim.x + threadIdx.x;
     while(tid < (index_t)out_h * out_w * wei_w * wei_h * NUM_CH_TOTAL)
     {
         // which row of the output to write to
@@ -642,7 +648,7 @@ extern "C" __global__ void Im2d2Col_v2(const int data_size_off,
         {
             col[col_off] = 0.;
         }
-        tid += get_global_size(0);
+        tid += (index_t)gridDim.x * blockDim.x;
     }
 #endif
 }
