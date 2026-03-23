@@ -483,6 +483,9 @@ void RunSolverFwd(const miopen::solver::conv::ConvSolverInterface& solv,
 
     input.generate(GenConvData<Tin, Tout>{weights.desc.GetLengths()});
     weights.generate(GenConvData<Twei, Tout>{weights.desc.GetLengths()});
+    // std::iota(input.begin(), input.end(), 1);
+    // std::fill(weights.begin(), weights.end(),1);
+    
     std::fill(output.begin(), output.end(), Tout());
 
     auto&& handle = get_handle();
@@ -568,6 +571,17 @@ void RunSolverFwd(const miopen::solver::conv::ConvSolverInterface& solv,
     }
 
     output.data = handle.Read<Tout>(out_dev, output.data.size());
+    // std::cout << "Reference:" << std::endl;
+    // for (auto d : ref_out) {
+    //     std::cout << d << " ";
+    // }
+    // std::cout << std::endl;
+    // std::cout << "==========="  << std::endl;
+
+    // for (auto d : output) {
+    //     std:: cout << d << " ";
+    // }
+    // std::cout << std::endl;
 
     VerifyData(output.data,
                ref_out.data,

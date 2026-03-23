@@ -50,6 +50,7 @@ Im2ColGPU(const Handle& handle,
           Data_t col,
           miopenDataType_t type,
           bool layoutNHWC,
+          int num_groups = 1,
           int channel_offset = 0,
           int in_c_per_group = 0,
           bool use_channel_offset = false);

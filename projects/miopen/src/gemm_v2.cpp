@@ -1952,11 +1952,12 @@ GemmDescriptor CreateGemmStridedBatchedDescriptorConv1x1BwdWeight(const TensorDe
 }
 
 // y = w * Im2Col(x)
-GemmDescriptor CreateGemmDescriptorGroupConvFwd(const TensorDescriptor& wDesc,
-                                                const TensorDescriptor& xDesc,
-                                                const TensorDescriptor& yDesc,
-                                                int groupCount)
+GemmDescriptor CreateGemmDescriptorGroupConvFwd(const conv::ProblemDescription& problem)
 {
+    decltype(auto) xDesc = problem.GetIn();
+    decltype(auto) wDesc = problem.GetWeights();
+    decltype(auto) yDesc = problem.GetOut();
+    const int groupCount = problem.GetGroupCount();
 #ifndef NDEBUG
     assert(wDesc.GetType() == xDesc.GetType() && wDesc.GetType() == yDesc.GetType());
 #endif
@@ -1967,22 +1968,25 @@ GemmDescriptor CreateGemmDescriptorGroupConvFwd(const TensorDescriptor& wDesc,
     auto wei_spatial = boost::adaptors::slice(wDesc.GetLengths(), 2, wDesc.GetLengths().size());
     auto out_spatial = boost::adaptors::slice(yDesc.GetLengths(), 2, yDesc.GetLengths().size());
 
-    bool isColMajor = false;
-    bool transA     = false;
+    bool isColMajor = problem.IsLayoutNHWC();
+    bool transA     = problem.IsLayoutNHWC();;
     bool transB     = false;
     int m           = wei_k / groupCount;
     int n = std::accumulate(out_spatial.begin(), out_spatial.end(), 1, std::multiplies<int>());
     int k = (in_c / groupCount) *
             std::accumulate(wei_spatial.begin(), wei_spatial.end(), 1, std::multiplies<int>());
     int lda         = k;
-    int ldb         = n;
-    int ldc         = n;
+    int ldb         = problem.IsLayoutNHWC() ? k : n;
+    int ldc         = problem.IsLayoutNHWC() ? m*groupCount : n;
     int batch_count = groupCount;
     auto strideA    = static_cast<long long>(m) * k;
     auto strideB    = static_cast<long long>(k) * n;
-    auto strideC    = static_cast<long long>(m) * n;
+    auto strideC    = problem.IsLayoutNHWC() ? m : static_cast<long long>(m) * n;
     float alpha     = 1.;
     float beta      = 0.;
+    // if (problem.IsLayoutNHWC()){
+    //     std::swap(strideA, strideB);
+    // }
 
     return GemmDescriptor{isColMajor,
                           transA,

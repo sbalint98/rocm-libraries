@@ -189,10 +189,15 @@ extern "C" __global__ void Im2d2Col_v2(const int  data_size_off,
     const int tile_h = blockIdx.y;
     const int tile_w = blockIdx.z;
 
+    const int num_groups = GROUPS;
+    const int channels_per_group = CHANNELS/GROUPS;
+    const int current_group = chan/channels_per_group;
+
     data_t* im_off = im + im_offset;
 
     // One column per output pixel: rows = wei_h * wei_w * num_ch
-    const int patch_size = WEI_H * WEI_W * CHANNELS;
+    const int patch_size = WEI_H * WEI_W * channels_per_group;
+    const int col_group_total_size = patch_size * out_h * out_w;
 
     const int base_oh = tile_h * TILE_OUT_H;
     const int base_ow = tile_w * TILE_OUT_W;
@@ -265,11 +270,10 @@ extern "C" __global__ void Im2d2Col_v2(const int  data_size_off,
                     const int im_c = ox * stride_w + kw * dilation_w;
 
                     const data_t v = lds[im_r * im_cols_wg + im_c];
-
+                    const int group_relative_channel = chan - (current_group*channels_per_group);
                     const index_t col_idx =
-                        patch_offset + ((index_t)kh * WEI_W + kw) * CHANNELS + chan;
-
-                    col[col_idx] = v;
+                        patch_offset + ((index_t)kh * WEI_W + kw) * channels_per_group + group_relative_channel;
+                    col[(col_group_total_size*current_group)+col_idx] = v;
                 }
             }
         }

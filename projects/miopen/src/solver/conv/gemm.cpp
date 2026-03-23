@@ -695,7 +695,7 @@ ConvSolution GemmFwd1x1_0_1::GetSolution(const ExecutionContext& context,
     if(group_count > 1)
     {
         const GemmDescriptor tmp_gemm_desc = [&]() {
-            auto tmp          = CreateGemmDescriptorGroupConvFwd(wDesc, xDesc, yDesc, group_count);
+            auto tmp          = CreateGemmDescriptorGroupConvFwd(problem);
             tmp.deterministic = problem.GetConv().attribute.deterministic;
             if(problem.IsTensorsCasted())
             {
@@ -913,7 +913,7 @@ ConvSolution GemmFwdRest::GetSolution(const ExecutionContext& context,
     solution.invoker_factory = [=](const std::vector<Kernel>&) {
         const auto tmp_gemm_desc = [&]() {
             auto tmp          = conv.group_count > 1
-                                    ? CreateGemmDescriptorGroupConvFwd(wDesc, xDesc, yDesc, conv.group_count)
+                                    ? CreateGemmDescriptorGroupConvFwd(problem)
                                     : CreateGemmDescriptorConvFwd(problem);
             tmp.deterministic = problem.GetConv().attribute.deterministic;
             if(problem.IsTensorsCasted())
@@ -970,6 +970,13 @@ ConvSolution GemmFwdRest::GetSolution(const ExecutionContext& context,
                 std::size_t out_offset = i * wei_k * out_spatial_size;
                 std::size_t in_offset  = i * in_c * in_spatial_size;
 
+                // for (int ii = 0; ii < (in_c*in_spatial_size); ++ii){
+                //     std::cout << static_cast<const float*>(x)[ii] << " ";
+                // }
+                // std::cout << std::endl;
+                // std::cout << "+=+================" << std::endl;
+                // std::cout << std::endl;
+
                 time_gemm += Im2ColGPU(handle,
                                        spatial_dim,
                                        x,
@@ -983,7 +990,14 @@ ConvSolution GemmFwdRest::GetSolution(const ExecutionContext& context,
                                        conv.GetConvDilations(),
                                        workSpace,
                                        xDesc.GetType(),
-                                       problem.IsLayoutNHWC());
+                                       problem.IsLayoutNHWC(),
+                                       problem.GetGroupCount());
+                // hipDeviceSynchronize();
+                // for (int ii = 0; ii < workSpaceSize; ++ii){
+                //     std::cout << static_cast<float*>(workSpace)[ii] << " ";
+                // }
+                // std::cout << std::endl;
+
 
                 std::size_t wksp_offset = 0;
                 if(wDesc.GetType() == miopenInt8 && !problem.IsLayoutNHWC())

@@ -198,10 +198,7 @@ GemmDescriptor CreateGemmStridedBatchedDescriptorConv1x1BwdWeight(const TensorDe
 
 // GEMM parameters for Group Convolution (using Im2Col) Fwd
 // y = w * Im2Col(x)
-GemmDescriptor CreateGemmDescriptorGroupConvFwd(const TensorDescriptor& wDesc,
-                                                const TensorDescriptor& xDesc,
-                                                const TensorDescriptor& yDesc,
-                                                int groupCount = 1);
+GemmDescriptor CreateGemmDescriptorGroupConvFwd(const conv::ProblemDescription& problem);
 
 // GEMM parameters for Group Convolution (using Im2Col) Bwd-Data
 // dx = Col2Im(transpose(w) * dy)

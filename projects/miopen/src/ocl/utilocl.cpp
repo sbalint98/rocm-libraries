@@ -61,6 +61,7 @@ float Im2d2ColGPU(const Handle& handle,
                   Data_t col,
                   miopenDataType_t type,
                   bool layoutNHWC,
+                  const int num_groups = 1,
                   const int channel_offset = 0,
                   const int channels_per_group = 0,
                   bool use_channel_offset = false)
@@ -289,38 +290,39 @@ float Im2d2ColGPU(const Handle& handle,
         const std::vector<size_t> vld{group_size_x, 1, 1};
         if(layoutNHWC)
         {
-            if(use_channel_offset)
-            {
-                const std::vector<size_t> vgd{channels_per_group * std::size_t{group_size_x}, 1, 1};
-                handle.AddKernel(
-                    "miopenIm2Col", network_config, program_name, kernel_name, vld, vgd, params)(
-                    data_size_bound,
-                    im,
-                    im_offset,
-                    in_h,
-                    in_w,
-                    wei_h,
-                    wei_w,
-                    out_h,
-                    out_w,
-                    pad_h,
-                    pad_w,
-                    stride_h,
-                    stride_w,
-                    dilation_h,
-                    dilation_w,
-                    channel_offset,
-                    c,
-                    col);
-            }
-            else
-            {
+            // if(use_channel_offset)
+            // {
+            //     const std::vector<size_t> vgd{channels_per_group * std::size_t{group_size_x}, 1, 1};
+            //     handle.AddKernel(
+            //         "miopenIm2Col", network_config, program_name, kernel_name, vld, vgd, params)(
+            //         data_size_bound,
+            //         im,
+            //         im_offset,
+            //         in_h,
+            //         in_w,
+            //         wei_h,
+            //         wei_w,
+            //         out_h,
+            //         out_w,
+            //         pad_h,
+            //         pad_w,
+            //         stride_h,
+            //         stride_w,
+            //         dilation_h,
+            //         dilation_w,
+            //         channel_offset,
+            //         c,
+            //         col);
+            // }
+            // else
+            // {
                 // CHANNEL BASED VERSION
-                const bool use_channel_based = false;
+                const bool use_channel_based = true;
                 const bool use_aligned       = true;
                 params += " -DWEI_H=" + std::to_string(wei_h);
                 params += " -DWEI_W=" + std::to_string(wei_w);
                 params += " -DCHANNELS=" + std::to_string(c);
+                params += " -DGROUPS=" + std::to_string(num_groups);
 
                 std::vector<size_t> vgd;
 
@@ -482,7 +484,7 @@ float Im2d2ColGPU(const Handle& handle,
                     dilation_w,
                     col);
             }
-        }
+        //}
 
         else
         {
@@ -896,6 +898,7 @@ float Im2ColGPU(
     Data_t col,
     miopenDataType_t type,
     bool layoutNHWC,
+    int num_groups,
     int channel_offset,
     int in_c_per_group,
     bool use_channel_offset)
@@ -922,6 +925,7 @@ float Im2ColGPU(
                            col,
                            type,
                            layoutNHWC,
+                           num_groups,
                            channel_offset,
                            in_c_per_group,
                            use_channel_offset);
