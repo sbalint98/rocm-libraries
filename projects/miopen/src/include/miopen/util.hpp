@@ -69,7 +69,8 @@ Col2ImGPU(const Handle& handle,
           Data_t im,
           std::size_t im_offset,
           miopenDataType_t type,
-          bool layoutNHWC);
+          bool layoutNHWC,
+          const int num_groups);
 
 MIOPEN_INTERNALS_EXPORT float transpose_NCHW2CNHW(const Handle& handle,
                                                   int n,

@@ -305,8 +305,8 @@ extern "C" __global__ void Im2d2Col_v2(
     const index_t idx    = (index_t)blockIdx.x * blockDim.x + threadIdx.x;
     const index_t grp_id = idx / THREADS_PER_CH;
     const int base_c     = idx % THREADS_PER_CH * ITEMS_PER_THREAD;
-    const int out_x      = grp_id % w;
-    const int out_y      = grp_id / w;
+    const int out_x      = grp_id % out_w;
+    const int out_y      = grp_id / out_h;
 
     if(grp_id >= (index_t)out_w * out_h)
     {
@@ -318,6 +318,7 @@ extern "C" __global__ void Im2d2Col_v2(
 
 #ifdef FLATTEN_WEI_H
     const int k_y = blockIdx.z;
+    if(k_y < WEI_H)
 #else
     #pragma clang loop unroll(full)
     for(int k_y = 0; k_y < WEI_H; ++k_y)
@@ -328,6 +329,7 @@ extern "C" __global__ void Im2d2Col_v2(
 
 #ifdef FLATTEN_WEI_W
         const int k_x = blockIdx.y;
+        if ( k_x < WEI_W)
 #else
         #pragma clang loop unroll(full)
         for(int k_x = 0; k_x < WEI_W; ++k_x)
@@ -397,7 +399,6 @@ extern "C" __global__ void Im2d2Col_v2(
     // this workgroup's output pixel
     const int oh = grp_id / out_w;
     const int ow = grp_id % out_w;
-
     const int patch_size   = WEI_H * WEI_W * CHANNELS;
     const int patch_offset = grp_id * patch_size;
 

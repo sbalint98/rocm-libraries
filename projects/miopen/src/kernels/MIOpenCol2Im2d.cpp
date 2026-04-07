@@ -69,16 +69,25 @@ extern "C" __global__  void Col2Im2dU( FLOAT* col,
                         const uint32_t im_offset)
 {
     FLOAT* im_off = im + im_offset;
-
     const size_t gid         = blockIdx.x*blockDim.x + threadIdx.x;
     const size_t global_size = blockDim.x*gridDim.x;
-    //const uint32_t channels      = global_size / (height * width);
 
     uint32_t c = gid % channels; // coordinates of the image's pixel handled by this thread
+    const int num_groups = GROUPS;
+
+    const int channels_per_group = channels/GROUPS;
+    const int current_group = c/channels_per_group;
+    const int channel_in_group = c%channels_per_group;
+
+    unsigned int input_size = channels * height * width;
+
+    const uint32_t size_of_group = col_h*col_w*(channels/num_groups) * wei_h * wei_w;
+
+
     uint32_t w = (gid / channels) % width;
     uint32_t h = gid / (channels * width);
 
-    unsigned int input_size = channels * height * width;
+
 
     if(gid >= input_size)
         return;
@@ -113,8 +122,10 @@ extern "C" __global__  void Col2Im2dU( FLOAT* col,
             if(cx < 0 || cx >= col_w)
                 continue;
 
-            size_t col_idx = (((((cy * col_w + cx) * wei_h + fy) * wei_w + fx) * channels) + c);
+            size_t col_idx = (((((cy * col_w + cx) * wei_h + fy) * wei_w + fx) * channels_per_group) + channel_in_group) + size_of_group*current_group;
+
             val += CVT_FLOAT2ACCUM(col[col_idx]);
+            //val = col[col_idx];
         }
     }
 

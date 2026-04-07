@@ -37,7 +37,7 @@ auto GetConvTestCases(miopenDataType_t datatype)
     auto type_y = (datatype == miopenInt8) ? miopenInt32 : datatype;
 
      std::vector<TestCase> test_cases;
-        
+    test_cases.emplace_back(TestCase{{1, 8, 8, 8, 1}, {8, 8, 3, 3, 1}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, type_x, type_w, type_y});
     test_cases.emplace_back(TestCase{{1, 8, 8, 8}, {8, 8, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y});
     test_cases.emplace_back(TestCase{{1, 3, 16, 16}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y});         // Basic convolution
     test_cases.emplace_back(TestCase{{1, 3, 16, 16}, {4, 3, 5, 5}, {2, 2}, {1, 1}, {1, 1}, type_x, type_w, type_y});         // Stride 2x2 test (downsampling)
@@ -50,9 +50,15 @@ auto GetConvTestCases(miopenDataType_t datatype)
     test_cases.emplace_back(TestCase{{2, 8, 16, 16}, {16, 8, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y});        // Batched input + increased channels
     test_cases.emplace_back(TestCase{{1, 16, 64, 64}, {32, 16, 5, 5}, {2, 2}, {1, 1}, {2, 2}, type_x, type_w, type_y});      // Large input
     test_cases.emplace_back(TestCase{{1, 3, 14, 14}, {4, 3, 3, 3}, {2, 2}, {1, 1}, {3, 3}, type_x, type_w, type_y});         // Large dilation, small input
-    test_cases.emplace_back(TestCase{{1, 8, 32, 32}, {16, 8, 3, 3}, {1, 1}, {4, 4}, {1, 1}, type_x, type_w, type_y});        // Large stride, medium input
     test_cases.emplace_back(TestCase{{1, 3, 28, 28}, {6, 3, 5, 5}, {2, 2}, {3, 3}, {2, 2}, type_x, type_w, type_y});         // Large stride + dilation
     test_cases.emplace_back(TestCase{{1, 3, 20, 20}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {5, 5}, type_x, type_w, type_y});         // Very large dilation
+    test_cases.emplace_back(TestCase{{1, 8, 32, 32}, {16, 8, 3, 3}, {1, 1}, {4, 4}, {1, 1}, type_x, type_w, type_y});        // Large stride, medium input
+    test_cases.emplace_back(TestCase{{1, 4, 64, 64}, {32, 4, 5, 5}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
+    test_cases.emplace_back(TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});    
+    test_cases.emplace_back(TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});    
+    test_cases.emplace_back(TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}); // large padding 30
+    test_cases.emplace_back(TestCase{{1, 2, 5, 5}, {4, 2, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}); // large padding 30
+
     test_cases.emplace_back(TestCase{{1, 3, 16, 16}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});    // same, with NHWC
     test_cases.emplace_back(TestCase{{1, 3, 16, 16}, {4, 3, 5, 5}, {2, 2}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
     test_cases.emplace_back(TestCase{{1, 3, 14, 14}, {4, 3, 3, 3}, {2, 2}, {2, 2}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
@@ -62,16 +68,13 @@ auto GetConvTestCases(miopenDataType_t datatype)
     test_cases.emplace_back(TestCase{{1, 3, 2, 2}, {4, 3, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
     test_cases.emplace_back(TestCase{{1, 3, 24, 24}, {4, 3, 5, 5}, {3, 3}, {2, 2}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
     test_cases.emplace_back(TestCase{{2, 8, 16, 16}, {16, 8, 3, 3}, {1, 1}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
-    test_cases.emplace_back(   TestCase{{1, 16, 64, 64}, {32, 16, 5, 5}, {2, 2}, {1, 1}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
     test_cases.emplace_back(TestCase{{1, 3, 14, 14}, {4, 3, 3, 3}, {2, 2}, {1, 1}, {3, 3}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
-    test_cases.emplace_back(   TestCase{{1, 8, 32, 32}, {16, 8, 3, 3}, {1, 1}, {4, 4}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
+    test_cases.emplace_back(TestCase{{1, 8, 32, 32}, {16, 8, 3, 3}, {1, 1}, {4, 4}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
     test_cases.emplace_back(TestCase{{1, 3, 28, 28}, {6, 3, 5, 5}, {2, 2}, {3, 3}, {2, 2}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
     test_cases.emplace_back(TestCase{{1, 3, 20, 20}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {5, 5}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
     test_cases.emplace_back(TestCase{{1, 64, 2, 2}, {64, 64, 2, 2}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}); // Small spatial, large channels 29
-    test_cases.emplace_back(   TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {3, 3}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}); // large padding 30
     test_cases.emplace_back(TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 2}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}); // Uneven padding (asymmetric) 31
     test_cases.emplace_back(TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {2, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}); // Un    TestCase{{1, 4, 16, 16}, {4, 2, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNCHW,miopenTensorNCHW, 2}, 
-    test_cases.emplace_back(TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});    
 
     if(datatype != miopenInt8) {
     test_cases.emplace_back(TestCase{{1, 4, 16, 16}, {4, 2, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC,2}); 
@@ -111,12 +114,15 @@ auto GetConvTestCasesFull(miopenDataType_t datatype)
     auto type_w = datatype;
     auto type_y = (datatype == miopenInt8) ? miopenInt32 : datatype;
 
-    return std::vector{
-        // clang-format off
-        // Regression test for https://github.com/ROCm/MIOpen/issues/2047
-        TestCase{{1, 1, 2, 1, 2}, {2, 1, 2, 1, 2}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, type_x, type_w, type_y},
-        // clang-format on
-    };
+    auto smoke_test_cases = GetConvTestCases(datatype);
+    smoke_test_cases.push_back( TestCase{{1, 1, 2, 1, 2}, {2, 1, 2, 1, 2}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, type_x, type_w, type_y});
+    return smoke_test_cases;
+    // return std::vector{
+    //     // clang-format off
+    //     // Regression test for https://github.com/ROCm/MIOpen/issues/2047
+    //     TestCase{{1, 1, 2, 1, 2}, {2, 1, 2, 1, 2}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, type_x, type_w, type_y},
+    //     // clang-format on
+    // };
 }
 
 const auto& GetTestParams()

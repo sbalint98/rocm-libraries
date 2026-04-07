@@ -993,7 +993,6 @@ ConvSolution GemmFwdRest::GetSolution(const ExecutionContext& context,
                                        problem.IsLayoutNHWC(),
                                        problem.GetGroupCount());
                 // hipDeviceSynchronize();
-                // for (int ii = 0; ii < workSpaceSize; ++ii){
                 //     std::cout << static_cast<float*>(workSpace)[ii] << " ";
                 // }
                 // std::cout << std::endl;

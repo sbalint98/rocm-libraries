@@ -98,6 +98,15 @@ struct ConvTestCase
                  std::vector<int>&& dilation,
                  int groups,
                  miopenDataType_t type);
+    
+    ConvTestCase(std::vector<size_t>&& x,
+                 std::vector<size_t>&& w,
+                 std::vector<int>&& pad,
+                 std::vector<int>&& stride,
+                 std::vector<int>&& dilation,
+                 int groups,
+                 miopenDataType_t type,
+                 miopenTensorLayout_t layout);
 
     ConvTestCase(std::vector<size_t>&& x,
                  std::vector<size_t>&& w,

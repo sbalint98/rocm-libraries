@@ -452,7 +452,7 @@ ConvSolution GemmBwd1x1_stride1::GetSolution(const ExecutionContext&,
             const auto tmp_gemm_desc = [&]() {
                 auto tmp =
                     group_count > 1
-                        ? CreateGemmDescriptorGroupConvBwdData(wDesc, dyDesc, dxDesc, group_count)
+                        ? CreateGemmDescriptorGroupConvBwdData(problem)
                         : CreateGemmStridedBatchedDescriptorConv1x1BwdData(wDesc, dyDesc, dxDesc);
                 tmp.deterministic = problem.GetConv().attribute.deterministic;
                 if(problem.IsTensorsCasted())
@@ -627,8 +627,8 @@ ConvSolution GemmBwdRest::GetSolution(const ExecutionContext& context,
     // dx = transpose(w) * dy
     const auto tmp_gemm_desc = [&]() {
         auto tmp          = group_count > 1
-                                ? CreateGemmDescriptorGroupConvBwdData(wDesc, dyDesc, dxDesc, group_count)
-                                : CreateGemmDescriptorConvBwdData(wDesc, dyDesc, dxDesc);
+                                ? CreateGemmDescriptorGroupConvBwdData(problem)
+                                : CreateGemmDescriptorConvBwdData(problem);
         tmp.deterministic = problem.GetConv().attribute.deterministic;
         if(problem.IsTensorsCasted())
         {
@@ -743,7 +743,14 @@ ConvSolution GemmBwdRest::GetSolution(const ExecutionContext& context,
                                            dx,
                                            in_offset,
                                            dyDesc_.GetType(),
-                                           problem.IsLayoutNHWC());
+                                           problem.IsLayoutNHWC(),
+                                           problem.GetGroupCount());
+                    hipDeviceSynchronize();
+                    for (int ii = 0; ii < in_spatial_size*in_c; ii++){
+                        std::cout << " " << static_cast<float*>(dx)[ii];
+                    }
+                    std::cout << std::endl;
+                    
                 }
             }
             else
@@ -805,7 +812,8 @@ ConvSolution GemmBwdRest::GetSolution(const ExecutionContext& context,
                                            dx,
                                            in_offset,
                                            dyDesc_.GetType(),
-                                           problem.IsLayoutNHWC());
+                                           problem.IsLayoutNHWC(),
+                                           problem.GetGroupCount());
                 }
             }
 

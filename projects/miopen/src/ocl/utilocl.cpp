@@ -123,6 +123,11 @@ float Im2d2ColGPU(const Handle& handle,
         const int c_pack = c;
 
         std::string params;
+
+        auto add_params = [&](std::string param) {
+            params += param;
+            network_config += param;
+        };
         int num_ch_per_wg;
         if((out_h <= 8 && out_w <= 8) && (stride_h == 1 && stride_w == 1) && (c_pack % 4 == 0))
             num_ch_per_wg = 4;
@@ -161,10 +166,12 @@ float Im2d2ColGPU(const Handle& handle,
                            ((wei_h - 1) * dilation_h + 1) * type_size;
         if(extreme_case > MAX_LOCAL_MEM)
         {
-            params += " -DEXTREME_LARGE";
-            params += " -DNUM_CH_TOTAL=" + std::to_string(c_pack);
-            network_config += " -DEXTREME_LARGE";
-            network_config += " -DNUM_CH_TOTAL=" + std::to_string(c_pack);
+            // params += " -DEXTREME_LARGE";
+            // params += ;
+            // network_config += " -DEXTREME_LARGE";
+            // network_config += " -DNUM_CH_TOTAL=" + std::to_string(c_pack);
+            add_params(" -DEXTREME_LARGE");
+            add_params(" -DNUM_CH_TOTAL=" + std::to_string(c_pack));
         }
         else
         {
@@ -198,23 +205,15 @@ float Im2d2ColGPU(const Handle& handle,
                 }
             }
         }
-
-        params += " -DLOCAL_MEM_SIZE=" +
-                  std::to_string(local_mem_sz); // needs some changes to the kernel launch
-        params += " -DSTRIDE_GT_1=" + std::to_string(static_cast<int>(stride_h * stride_w > 1));
-        params += " -DNUM_IM_BLKS_EQ_1=" + std::to_string(static_cast<int>(num_blks == 1));
-        params += " -DUSE_IM_OFF_GUARD=1"; // always one
-
-        network_config += " -DLOCAL_MEM_SIZE=" +
-                          std::to_string(local_mem_sz); // needs some changes to the kernel launch
-        network_config +=
-            " -DSTRIDE_GT_1=" + std::to_string(static_cast<int>(stride_h * stride_w > 1));
-        network_config += " -DNUM_IM_BLKS_EQ_1=" + std::to_string(static_cast<int>(num_blks == 1));
-        network_config += " -DUSE_IM_OFF_GUARD=1"; // always one
+        add_params(" -DLOCAL_MEM_SIZE=" +
+                  std::to_string(local_mem_sz));
+        add_params(" -DSTRIDE_GT_1=" + std::to_string(static_cast<int>(stride_h * stride_w > 1)));
+        add_params(" -DNUM_IM_BLKS_EQ_1=" + std::to_string(static_cast<int>(num_blks == 1)));
+        add_params(" -DUSE_IM_OFF_GUARD=1"); // always one
 
         params += GetDataTypeKernelParams(type);
 
-        params += " -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC));
+        add_params(" -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC)));
         if(layoutNHWC && use_channel_offset)
         {
             params += " -DUSE_CHANNEL_OFFSET";
@@ -283,8 +282,7 @@ float Im2d2ColGPU(const Handle& handle,
 
         if(use_64bit_buffer_index)
         {
-            params += " -DUSE_LARGE_BUFFER_INDEX";
-            network_config += " -DUSE_LARGE_BUFFER_INDEX";
+            add_params(" -DUSE_LARGE_BUFFER_INDEX");
         }
 
         const std::vector<size_t> vld{group_size_x, 1, 1};
@@ -317,12 +315,13 @@ float Im2d2ColGPU(const Handle& handle,
             // else
             // {
                 // CHANNEL BASED VERSION
-                const bool use_channel_based = true;
-                const bool use_aligned       = true;
-                params += " -DWEI_H=" + std::to_string(wei_h);
-                params += " -DWEI_W=" + std::to_string(wei_w);
-                params += " -DCHANNELS=" + std::to_string(c);
-                params += " -DGROUPS=" + std::to_string(num_groups);
+                
+                const bool use_channel_based = num_groups > 1 ? true : false;
+                const bool use_aligned       = num_groups > 1 ? false : true;
+                add_params(" -DWEI_H=" + std::to_string(wei_h));
+                add_params(" -DWEI_W=" + std::to_string(wei_w));
+                add_params(" -DCHANNELS=" + std::to_string(c));
+                add_params(" -DGROUPS=" + std::to_string(num_groups));
 
                 std::vector<size_t> vgd;
 
@@ -336,12 +335,13 @@ float Im2d2ColGPU(const Handle& handle,
 
                 if(use_channel_based)
                 {
-                    params += " -DUSE_CHANNEL_BASED";
+                    add_params(" -DUSE_CHANNEL_BASED");
 
                     const int tile_out_h = 16;
                     const int tile_out_w = 16;
-                    params += " -DTILE_OUT_H=" + std::to_string(tile_out_h);
-                    params += " -DTILE_OUT_W=" + std::to_string(tile_out_w);
+
+                    add_params(" -DTILE_OUT_H=" + std::to_string(tile_out_h));
+                    add_params(" -DTILE_OUT_W=" + std::to_string(tile_out_w));
 
                     const int tiles_out_h = integer_division_ceil(out_h, tile_out_h);
                     const int tiles_out_w = integer_division_ceil(out_w, tile_out_w);
@@ -350,109 +350,112 @@ float Im2d2ColGPU(const Handle& handle,
                         c * std::size_t{group_size_x}, tiles_out_h, tiles_out_w}; // channel based
                     selected = true;
                 }
-                // else if(use_aligned && bytes_per_pixel >= min_aligned_bytes &&
-                //         bytes_per_pixel % min_aligned_bytes == 0)
-                // {
-                //     params += " -DMANY_CHANNELS";
+                else if(use_aligned && bytes_per_pixel >= min_aligned_bytes &&
+                        bytes_per_pixel % min_aligned_bytes == 0)
+                {
+                    add_params(" -DMANY_CHANNELS");
 
-                //     // Arbitrary chosen: We expect the kernel to not use a lot of
-                //     // registers and have the maximum occupancy, therefore we can
-                //     // schedule at least 4 (with group_size_x hardcoded to 256) kernels
-                //     // on a single CU. Most AMD GPUs have in the order of 100-300 CUs,
-                //     // and we want to have at least one block for CU. This seems like
-                //     // a decent random value.
-                //     // TODO: This should be based on the GPU's CU count.
-                //     const int min_blocks = 256;
+                    // Arbitrary chosen: We expect the kernel to not use a lot of
+                    // registers and have the maximum occupancy, therefore we can
+                    // schedule at least 4 (with group_size_x hardcoded to 256) kernels
+                    // on a single CU. Most AMD GPUs have in the order of 100-300 CUs,
+                    // and we want to have at least one block for CU. This seems like
+                    // a decent random value.
+                    // TODO: This should be based on the GPU's CU count.
+                    const int min_blocks = 256;
 
-                //     int items_per_thread = 0;
-                //     int threads_per_ch   = 0;
-                //     bool flatten_k_w     = false;
-                //     bool flatten_k_h     = false;
-                //     size_t blocks        = 0;
+                    int items_per_thread = 0;
+                    int threads_per_ch   = 0;
+                    bool flatten_k_w     = false;
+                    bool flatten_k_h     = false;
+                    size_t blocks        = 0;
 
-                //     // Vary the bytes per thread so that we can reduce it if we don't have
-                //     // enough blocks.
-                //     for(int bytes_per_thread : {16, 8, 4})
-                //     {
-                //         if(bytes_per_thread < get_data_size(type))
-                //         {
-                //             // Note: If the data type is too large for a single thread,
-                //             // just use the last configuration. This loop and the flatten k_h/k_w
-                //             // conditions are structured such that the block size should only
-                //             // increase, so if we exit here we either have no valid kernel (if the
-                //             // datatype size is larger than 16 bytes) or have a valid kernel of a
-                //             // larger bytes-per-thread count (otherwise).
-                //             break;
-                //         }
+                    // Vary the bytes per thread so that we can reduce it if we don't have
+                    // enough blocks.
+                    for(int bytes_per_thread : {16, 8, 4})
+                    {
+                        if(bytes_per_thread < get_data_size(type))
+                        {
+                            // Note: If the data type is too large for a single thread,
+                            // just use the last configuration. This loop and the flatten k_h/k_w
+                            // conditions are structured such that the block size should only
+                            // increase, so if we exit here we either have no valid kernel (if the
+                            // datatype size is larger than 16 bytes) or have a valid kernel of a
+                            // larger bytes-per-thread count (otherwise).
+                            break;
+                        }
 
-                //         assert(bytes_per_pixel % bytes_per_thread == 0);
-                //         assert(min_aligned_bytes % bytes_per_thread == 0);
+                        assert(bytes_per_pixel % bytes_per_thread == 0);
+                        assert(min_aligned_bytes % bytes_per_thread == 0);
 
-                //         items_per_thread = bytes_per_thread / get_data_size(type);
-                //         assert(c % items_per_thread == 0);
-                //         threads_per_ch = c / items_per_thread;
+                        items_per_thread = bytes_per_thread / get_data_size(type);
+                        assert(c % items_per_thread == 0);
+                        threads_per_ch = c / items_per_thread;
 
-                //         vgd    = {static_cast<size_t>(threads_per_ch) * out_w * out_h,
-                //                   1,
-                //                   1}; // outputpixel based, many channels
-                //         blocks = integer_division_ceil(vgd[0], vld[0]);
+                        vgd    = {static_cast<size_t>(threads_per_ch) * out_w * out_h,
+                                  1,
+                                  1}; // outputpixel based, many channels
 
-                //         flatten_k_w = false;
-                //         flatten_k_h = false;
+                        vgd[0] = integer_division_ceil(vgd[0], vld[0])*vld[0];
+                        blocks = integer_division_ceil(vgd[0], vld[0]);
 
-                //         // If we don't have enough blocks, flatten one of the kernel dimensions.
-                //         // Note: Flatten W first since its the inner loop.
-                //         if(blocks < min_blocks)
-                //         {
-                //             flatten_k_w = true;
-                //             vgd[1]      = wei_w;
-                //             blocks *= integer_division_ceil(vgd[1], vld[1]);
-                //         }
+                        flatten_k_w = false;
+                        flatten_k_h = false;
 
-                //         // If we STILL don't have enough blocks, flatten the other dimension
-                //         if(blocks < min_blocks)
-                //         {
-                //             flatten_k_h = true;
-                //             vgd[2]      = wei_h;
-                //             blocks *= integer_division_ceil(vgd[2], vld[2]);
-                //         }
+                        // If we don't have enough blocks, flatten one of the kernel dimensions.
+                        // Note: Flatten W first since its the inner loop.
+                        if(blocks < min_blocks)
+                        {
+                            flatten_k_w = true;
+                            vgd[1]      = wei_w;
+                            blocks *= integer_division_ceil(vgd[1], vld[1]);
+                        }
 
-                //         if(blocks >= min_blocks)
-                //         {
-                //             break;
-                //         }
-                //     }
+                        // If we STILL don't have enough blocks, flatten the other dimension
+                        if(blocks < min_blocks)
+                        {
+                            flatten_k_h = true;
+                            vgd[2]      = wei_h;
+                            blocks *= integer_division_ceil(vgd[2], vld[2]);
+                        }
 
-                //     if(items_per_thread == 0)
-                //     {
-                //         // We didn't manage to find a kernel that applies at all
-                //         // fall back to another implementation.
-                //         selected = false;
-                //     }
-                //     else
-                //     {
-                //         std::cout << "items per thread: " << items_per_thread << std::endl;
-                //         std::cout << "threads per channel: " << threads_per_ch << std::endl;
-                //         std::cout << "blocks: " << blocks << std::endl;
+                        if(blocks >= min_blocks)
+                        {
+                            break;
+                        }
+                    }
 
-                //         params += " -DITEMS_PER_THREAD=" + std::to_string(items_per_thread);
-                //         params += " -DTHREADS_PER_CH=" + std::to_string(threads_per_ch);
+                    if(items_per_thread == 0)
+                    {
+                        // We didn't manage to find a kernel that applies at all
+                        // fall back to another implementation.
+                        selected = false;
+                    }
+                    else
+                    {
+                        std::cout << "items per thread: " << items_per_thread << std::endl;
+                        std::cout << "threads per channel: " << threads_per_ch << std::endl;
+                        std::cout << "blocks: " << blocks << std::endl;
 
-                //         if(flatten_k_h)
-                //         {
-                //             params += " -DFLATTEN_WEI_W";
-                //             std::cout << "flattening weights W" << std::endl;
-                //         }
+                        add_params(" -DITEMS_PER_THREAD=" + std::to_string(items_per_thread));
+                        add_params(" -DTHREADS_PER_CH=" + std::to_string(threads_per_ch));
 
-                //         if(flatten_k_w)
-                //         {
-                //             params += " -DFLATTEN_WEI_H";
-                //             std::cout << "flattening weights H" << std::endl;
-                //         }
 
-                //         selected = true;
-                //     }
-                // }
+                        if(flatten_k_h)
+                        {
+                            add_params(" -DFLATTEN_WEI_W");
+                            std::cout << "flattening weights W" << std::endl;
+                        }
+
+                        if(flatten_k_w)
+                        {
+                            add_params(" -DFLATTEN_WEI_H");
+                            std::cout << "flattening weights H" << std::endl;
+                        }
+
+                        selected = true;
+                    }
+                }
 
                 if(!selected)
                 {
@@ -664,7 +667,8 @@ float Col2Im2dGPU(const Handle& handle,
                   Data_t im,
                   uint32_t im_offset,
                   miopenDataType_t type,
-                  bool layoutNHWC)
+                  bool layoutNHWC,
+                  const int num_groups = 1)
 {
     std::string program_name = "MIOpenCol2Im2d.cpp";
     std::string kernel_name  = "Col2Im2dU";
@@ -734,6 +738,7 @@ float Col2Im2dGPU(const Handle& handle,
         params += " -DMIOPEN_USE_64BIT_INDEX=" + std::to_string(Is64BitIndexRequired());
 
         params += " -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC));
+        params += " -DGROUPS=" + std::to_string(num_groups);
 
         handle.AddKernel(
             "miopenCol2Im2d", network_config, program_name, kernel_name, vld, vgd, params)(
@@ -980,7 +985,8 @@ float Col2ImGPU(
     Data_t im,
     std::size_t im_offset,
     miopenDataType_t type,
-    bool layoutNHWC)
+    bool layoutNHWC,
+    const int num_groups)
 {
     switch(spatial_dim)
     {
@@ -1003,7 +1009,8 @@ float Col2ImGPU(
                            im,
                            im_offset,
                            type,
-                           layoutNHWC);
+                           layoutNHWC, 
+                           num_groups);
     }
     case 3: {
         return Col2Im3dGPU(handle,

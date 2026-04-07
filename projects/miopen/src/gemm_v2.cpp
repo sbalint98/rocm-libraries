@@ -1588,10 +1588,11 @@ decltype(auto) yDesc = problem.GetOut();
 }
 
 // dx = Col2Im(transpose(w) * dy)
-GemmDescriptor CreateGemmDescriptorConvBwdData(const TensorDescriptor& wDesc,
-                                               const TensorDescriptor& dyDesc,
-                                               const TensorDescriptor& dxDesc)
+GemmDescriptor CreateGemmDescriptorConvBwdData(const conv::ProblemDescription& problem)
 {
+    decltype(auto) dxDesc = problem.GetIn();
+    decltype(auto) wDesc = problem.GetWeights();
+    decltype(auto) dyDesc = problem.GetOut();
 #ifndef NDEBUG
     assert(wDesc.GetType() == dxDesc.GetType() && wDesc.GetType() == dyDesc.GetType());
 #endif
@@ -2008,11 +2009,12 @@ GemmDescriptor CreateGemmDescriptorGroupConvFwd(const conv::ProblemDescription& 
 }
 
 // dx = Col2Im(transpose(w) * dy)
-GemmDescriptor CreateGemmDescriptorGroupConvBwdData(const TensorDescriptor& wDesc,
-                                                    const TensorDescriptor& dyDesc,
-                                                    const TensorDescriptor& dxDesc,
-                                                    int groupCount)
+GemmDescriptor CreateGemmDescriptorGroupConvBwdData(const conv::ProblemDescription& problem)
 {
+    decltype(auto) dxDesc = problem.GetIn();
+    decltype(auto) wDesc = problem.GetWeights();
+    decltype(auto) dyDesc = problem.GetOut();
+    const int groupCount = problem.GetGroupCount();
 #ifndef NDEBUG
     assert(wDesc.GetType() == dxDesc.GetType() && wDesc.GetType() == dyDesc.GetType());
 #endif
