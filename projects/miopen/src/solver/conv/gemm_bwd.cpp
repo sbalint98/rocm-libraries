@@ -689,72 +689,6 @@ ConvSolution GemmBwdRest::GetSolution(const ExecutionContext& context,
 
             float time_gemm = 0;
 
-            if(problem.IsLayoutNHWC())
-            {
-
-                const auto gemm_desc = [&]() {
-                    auto tmp            = tmp_gemm_desc;
-                    tmp.gfx90a_alt_impl = conv_params.gfx90aFp16alt;
-                    tmp.transA          = false;
-                    tmp.m               = tmp_gemm_desc.n;
-                    tmp.n               = tmp_gemm_desc.m;
-                    tmp.k               = tmp_gemm_desc.k;
-                    tmp.lda             = tmp.k;
-                    tmp.ldb             = tmp.n;
-                    tmp.ldc             = tmp.n;
-                    return tmp;
-                }();
-
-                for(std::size_t i = 0; i < in_n; i++)
-                {
-                    std::size_t out_offset = i * wei_k * out_spatial_size;
-                    std::size_t in_offset  = i * in_c * in_spatial_size;
-
-                    miopenStatus_t gemm_status;
-
-                    {
-                        gemm_status = CallGemm(handle,
-                                               gemm_desc,
-                                               dy,
-                                               out_offset,
-                                               w,
-                                               0,
-                                               workspace,
-                                               0,
-                                               GemmBackend_t::rocblas);
-                    }
-
-                    if(gemm_status != miopenStatusSuccess)
-                        MIOPEN_THROW("GemmBwdRest execution failure.");
-
-                    if(handle.IsProfilingEnabled())
-                        time_gemm += handle.GetKernelTime();
-
-                    time_gemm += Col2ImGPU(handle,
-                                           spatial_dims,
-                                           workspace,
-                                           out_spatial,
-                                           wei_spatial,
-                                           pads,
-                                           strides,
-                                           dilations,
-                                           in_c,
-                                           in_spatial,
-                                           dx,
-                                           in_offset,
-                                           dyDesc_.GetType(),
-                                           problem.IsLayoutNHWC(),
-                                           problem.GetGroupCount());
-                    hipDeviceSynchronize();
-                    for (int ii = 0; ii < in_spatial_size*in_c; ii++){
-                        std::cout << " " << static_cast<float*>(dx)[ii];
-                    }
-                    std::cout << std::endl;
-                    
-                }
-            }
-            else
-            {
                 const auto gemm_desc = [&]() {
                     auto tmp            = tmp_gemm_desc;
                     tmp.gfx90a_alt_impl = conv_params.gfx90aFp16alt;
@@ -814,7 +748,6 @@ ConvSolution GemmBwdRest::GetSolution(const ExecutionContext& context,
                                            dyDesc_.GetType(),
                                            problem.IsLayoutNHWC(),
                                            problem.GetGroupCount());
-                }
             }
 
             if(handle.IsProfilingEnabled())
