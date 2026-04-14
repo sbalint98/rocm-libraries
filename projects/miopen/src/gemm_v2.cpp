@@ -1603,16 +1603,16 @@ GemmDescriptor CreateGemmDescriptorConvBwdData(const conv::ProblemDescription& p
     auto wei_spatial = boost::adaptors::slice(wDesc.GetLengths(), 2, wDesc.GetLengths().size());
     auto out_spatial = boost::adaptors::slice(dyDesc.GetLengths(), 2, dyDesc.GetLengths().size());
 
-    bool isColMajor = false;
-    bool transA     = true;
+    bool isColMajor = problem.IsLayoutNHWC() ? true : false;
+    bool transA     = problem.IsLayoutNHWC() ? false : true;
     bool transB     = false;
     int m =
         in_c * std::accumulate(wei_spatial.begin(), wei_spatial.end(), 1, std::multiplies<int>());
     int n   = std::accumulate(out_spatial.begin(), out_spatial.end(), 1, std::multiplies<int>());
     int k   = wei_k;
     int lda = m;
-    int ldb = n;
-    int ldc = n;
+    int ldb = problem.IsLayoutNHWC() ? k : n;
+    int ldc = problem.IsLayoutNHWC() ? m : n;
     int batch_count = 1;
     auto strideA    = static_cast<long long>(0);
     auto strideB    = static_cast<long long>(0);
