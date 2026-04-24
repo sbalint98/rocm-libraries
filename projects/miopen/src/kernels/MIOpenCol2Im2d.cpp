@@ -125,7 +125,6 @@ extern "C" __global__  void Col2Im2dU( FLOAT* col,
             size_t col_idx = (((((cy * col_w + cx) * wei_h + fy) * wei_w + fx) * channels_per_group) + channel_in_group) + size_of_group*current_group;
 
             val += CVT_FLOAT2ACCUM(col[col_idx]);
-            //val = col[col_idx];
         }
     }
 

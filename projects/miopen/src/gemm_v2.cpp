@@ -31,6 +31,7 @@
 #include <miopen/handle.hpp>
 #include <miopen/datatype.hpp>
 #include <miopen/hipoc_kernel.hpp>
+#include <unistd.h>
 
 #if MIOPEN_USE_HIPBLASLT
 #include <hipblaslt/hipblaslt.h>
@@ -1603,8 +1604,8 @@ GemmDescriptor CreateGemmDescriptorConvBwdData(const conv::ProblemDescription& p
     auto wei_spatial = boost::adaptors::slice(wDesc.GetLengths(), 2, wDesc.GetLengths().size());
     auto out_spatial = boost::adaptors::slice(dyDesc.GetLengths(), 2, dyDesc.GetLengths().size());
 
-    bool isColMajor = problem.IsLayoutNHWC() ? true : false;
-    bool transA     = problem.IsLayoutNHWC() ? false : true;
+    bool isColMajor = problem.IsLayoutNHWC();
+    bool transA     = !problem.IsLayoutNHWC();
     bool transB     = false;
     int m =
         in_c * std::accumulate(wei_spatial.begin(), wei_spatial.end(), 1, std::multiplies<int>());
@@ -1970,7 +1971,7 @@ GemmDescriptor CreateGemmDescriptorGroupConvFwd(const conv::ProblemDescription& 
     auto out_spatial = boost::adaptors::slice(yDesc.GetLengths(), 2, yDesc.GetLengths().size());
 
     bool isColMajor = problem.IsLayoutNHWC();
-    bool transA     = problem.IsLayoutNHWC();;
+    bool transA     = problem.IsLayoutNHWC();
     bool transB     = false;
     int m           = wei_k / groupCount;
     int n = std::accumulate(out_spatial.begin(), out_spatial.end(), 1, std::multiplies<int>());
@@ -2025,19 +2026,19 @@ GemmDescriptor CreateGemmDescriptorGroupConvBwdData(const conv::ProblemDescripti
     auto wei_spatial = boost::adaptors::slice(wDesc.GetLengths(), 2, wDesc.GetLengths().size());
     auto out_spatial = boost::adaptors::slice(dyDesc.GetLengths(), 2, dyDesc.GetLengths().size());
 
-    bool isColMajor = false;
-    bool transA     = true;
+    bool isColMajor = problem.IsLayoutNHWC();;
+    bool transA     = !problem.IsLayoutNHWC();
     bool transB     = false;
     int m           = (in_c / groupCount) *
             std::accumulate(wei_spatial.begin(), wei_spatial.end(), 1, std::multiplies<int>());
     int n   = std::accumulate(out_spatial.begin(), out_spatial.end(), 1, std::multiplies<int>());
     int k   = wei_k / groupCount;
     int lda = m;
-    int ldb = n;
-    int ldc = n;
+    int ldb = problem.IsLayoutNHWC() ? groupCount*k : n;
+    int ldc = problem.IsLayoutNHWC() ? m : n;
     int batch_count = groupCount;
     auto strideA    = static_cast<long long>(m) * k;
-    auto strideB    = static_cast<long long>(k) * n;
+    auto strideB    = problem.IsLayoutNHWC() ? k : static_cast<long long>(k) * n;
     auto strideC    = static_cast<long long>(m) * n;
     float alpha     = 1.;
     float beta      = 0.;

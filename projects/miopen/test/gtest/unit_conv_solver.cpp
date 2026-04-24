@@ -642,10 +642,8 @@ void RunSolverBwd(const miopen::solver::conv::ConvSolverInterface& solv,
 
     auto output = tensor<Tout>{output_desc};
 
-    output.generate(GenConvData<Tout, Tin>{weights.desc.GetLengths()});
+    output.generate(GenConvData<Tout, Tin>{output.desc.GetLengths()});
     weights.generate(GenConvData<Twei, Tin>{weights.desc.GetLengths()});
-    // std::fill(output.begin(), output.end(), 1);
-    // std::fill(weights.begin(), weights.end(),1);
 
     std::fill(input.begin(), input.end(), Tin());
 
@@ -724,13 +722,7 @@ void RunSolverBwd(const miopen::solver::conv::ConvSolverInterface& solv,
     }
 
     input.data = handle.Read<Tin>(in_dev, input.data.size());
-    // std::cout << "Reference:" << std::endl;
-    // for (int i = 0; i < ref_in.data.size(); i++) {
-    //     if (input.data[i] != ref_in.data[i]) {
-    //         std::cout << "Missmatch Ref " << ref_in.data[i] <<
-    //          " GPU: " << input.data[i] << " Idx: " << i << std::endl;
-    //     }
-    // }
+
     VerifyData(input.data,
                ref_in.data,
                algo,

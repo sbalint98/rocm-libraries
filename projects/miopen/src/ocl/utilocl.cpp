@@ -679,6 +679,7 @@ float Col2Im2dGPU(const Handle& handle,
         "c" + std::to_string(in_c) +
         "in_h" + std::to_string(in_h) +
         "in_w" + std::to_string(in_w) +
+        "groups" + std::to_string(num_groups) +
         "y" + std::to_string(wei_h) +
         "x" + std::to_string(wei_w) +
         "p" + std::to_string(pad_h) +
