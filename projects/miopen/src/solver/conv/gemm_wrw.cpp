@@ -90,7 +90,7 @@ bool GemmWrwBase::IsApplicable(const ExecutionContext& ctx, const ProblemDescrip
     if(problem.HasNonPackedTensors())
         return false;
 
-    return problem.IsDirectionBackwardWrW() && problem.IsLayoutDefault() &&
+    return problem.IsDirectionBackwardWrW() && (problem.IsLayoutDefault() || problem.IsLayoutNHWC()) &&
            !(gemm::IsAnyBufferBf16(xDesc, dyDesc, dwDesc) && !gemm::IsBf16Supported) &&
            !(gemm::IsAnyBufferFp16(xDesc, dyDesc, dwDesc) && !gemm::IsFp16Supported);
 #else
@@ -192,7 +192,7 @@ ConvSolution GemmWrw1x1_stride1::GetSolution(const ExecutionContext&,
     // dw = sum_over_batch(dy[i] * transpose(x[i])), i is batch id
     const auto tmp_gemm_desc = [&]() {
         auto tmp          = group_count > 1
-                                ? CreateGemmDescriptorGroupConvBwdWeight(dyDesc, xDesc, dwDesc, group_count)
+                                ? CreateGemmDescriptorGroupConvBwdWeight(problem)
                                 : CreateGemmStridedBatchedDescriptorConv1x1BwdWeight(dyDesc, xDesc, dwDesc);
         tmp.deterministic = problem.GetConv().attribute.deterministic;
         if(problem.IsTensorsCasted())
@@ -370,8 +370,8 @@ ConvSolution GemmWrwUniversal::GetSolution(const ExecutionContext& context,
     // dw = dy * transpose(Im2Col(x))
     const auto tmp_gemm_desc = [&]() {
         auto tmp          = group_count > 1
-                                ? CreateGemmDescriptorGroupConvBwdWeight(dyDesc, xDesc, dwDesc, group_count)
-                                : CreateGemmDescriptorConvBwdWeight(dyDesc, xDesc, dwDesc);
+                                ? CreateGemmDescriptorGroupConvBwdWeight(problem)
+                                : CreateGemmDescriptorConvBwdWeight(problem);
         tmp.deterministic = problem.GetConv().attribute.deterministic;
         if(problem.IsTensorsCasted())
         {
@@ -471,7 +471,7 @@ ConvSolution GemmWrwUniversal::GetSolution(const ExecutionContext& context,
                                   conv_dilations,
                                   workspace,
                                   dyDesc_.GetType(),
-                                  false);
+                                  problem.IsLayoutNHWC());
 
                 miopenStatus_t status;
 

@@ -316,8 +316,13 @@ float Im2d2ColGPU(const Handle& handle,
             // {
                 // CHANNEL BASED VERSION
                 
-                const bool use_channel_based = num_groups > 1 ? true : false;
-                const bool use_aligned       = num_groups > 1 ? false : true;
+                // const bool use_channel_based = num_groups > 1 ? true : false;
+                // const bool use_aligned       = num_groups > 1 ? false : true;
+                // TODO aligned is buggy it fails during the universal backward tests
+                // TODO figure out why is the aligned version is problematic, or remove
+                const bool use_channel_based =  true;
+                const bool use_aligned       =  false;
+                
                 add_params(" -DWEI_H=" + std::to_string(wei_h));
                 add_params(" -DWEI_W=" + std::to_string(wei_w));
                 add_params(" -DCHANNELS=" + std::to_string(c));

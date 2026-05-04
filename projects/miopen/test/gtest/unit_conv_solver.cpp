@@ -24,6 +24,7 @@
  *
  *******************************************************************************/
 
+#include <iterator>
 #include <miopen/conv/data_invoke_params.hpp>
 #include <miopen/conv/wrw_invoke_params.hpp>
 #include <miopen/errors.hpp>
@@ -771,6 +772,9 @@ void RunSolverWrw(const miopen::solver::conv::ConvSolverInterface& solv,
 
     input.generate(GenConvData<Tin, Twei>{output_desc.GetLengths()});
     output.generate(GenConvData<Tout, Twei>{output_desc.GetLengths()});
+
+    // std::iota(input.begin(), input.end(), 1);
+    // std::iota(output.begin(), output.end(), 1);
     std::fill(weights.begin(), weights.end(), Twei());
 
     auto&& handle = get_handle();
@@ -849,6 +853,10 @@ void RunSolverWrw(const miopen::solver::conv::ConvSolverInterface& solv,
 
     weights.data = handle.Read<Twei>(wei_dev, weights.data.size());
 
+
+    // for (int i = 0; i < weights.GetSize(); i++){
+    //     std::cout << weights[i] << " " << ref_weights[i] << std::endl;
+    // }
     VerifyData(weights.data,
                ref_weights.data,
                algo,

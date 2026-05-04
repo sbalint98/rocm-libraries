@@ -1641,10 +1641,11 @@ GemmDescriptor CreateGemmDescriptorConvBwdData(const conv::ProblemDescription& p
 }
 
 // dw = dy * transpose(Im2Col(x))
-GemmDescriptor CreateGemmDescriptorConvBwdWeight(const TensorDescriptor& dyDesc,
-                                                 const TensorDescriptor& xDesc,
-                                                 const TensorDescriptor& dwDesc)
+GemmDescriptor CreateGemmDescriptorConvBwdWeight(const conv::ProblemDescription& problem)
 {
+    const auto& dyDesc     = problem.GetIn();
+    const auto& dwDesc     = problem.GetWeights();
+    const auto& xDesc      = problem.GetOut();
 #ifndef NDEBUG
     assert(dwDesc.GetType() == xDesc.GetType() && dwDesc.GetType() == dyDesc.GetType());
 #endif
@@ -1656,15 +1657,16 @@ GemmDescriptor CreateGemmDescriptorConvBwdWeight(const TensorDescriptor& dyDesc,
     auto out_spatial = boost::adaptors::slice(dyDesc.GetLengths(), 2, dyDesc.GetLengths().size());
 
     bool isColMajor = false;
-    bool transA     = false;
-    bool transB     = true;
+    bool transA     = problem.IsLayoutNHWC();
+    bool transB     = !problem.IsLayoutNHWC();
     int m           = wei_k;
     int n           = static_cast<int>(in_c) *
             std::accumulate(wei_spatial.begin(), wei_spatial.end(), 1, std::multiplies<int>());
     int k   = std::accumulate(out_spatial.begin(), out_spatial.end(), 1, std::multiplies<int>());
-    int lda = k;
-    int ldb = k;
-    int ldc = n;
+
+    int lda = problem.IsLayoutNHWC() ? m : k;
+    int ldb = problem.IsLayoutNHWC() ? n : k;
+    int ldc = problem.IsLayoutNHWC() ? n : n;
     int batch_count = 1;
     auto strideA    = static_cast<long long>(0);
     auto strideB    = static_cast<long long>(0);
@@ -2063,11 +2065,13 @@ GemmDescriptor CreateGemmDescriptorGroupConvBwdData(const conv::ProblemDescripti
 }
 
 // dw = dy * transpose(Im2Col(x))
-GemmDescriptor CreateGemmDescriptorGroupConvBwdWeight(const TensorDescriptor& dyDesc,
-                                                      const TensorDescriptor& xDesc,
-                                                      const TensorDescriptor& dwDesc,
-                                                      int groupCount)
+GemmDescriptor CreateGemmDescriptorGroupConvBwdWeight(const conv::ProblemDescription& problem)
 {
+    const auto& dyDesc     = problem.GetIn();
+    const auto& dwDesc     = problem.GetWeights();
+    const auto& xDesc      = problem.GetOut();
+    const auto& conv       = problem.GetConv();
+    const auto group_count = conv.group_count;
 #ifndef NDEBUG
     assert(dwDesc.GetType() == xDesc.GetType() && dwDesc.GetType() == dyDesc.GetType());
 #endif
@@ -2081,14 +2085,14 @@ GemmDescriptor CreateGemmDescriptorGroupConvBwdWeight(const TensorDescriptor& dy
     bool isColMajor = false;
     bool transA     = false;
     bool transB     = true;
-    int m           = wei_k / groupCount;
-    int n           = (in_c / groupCount) *
+    int m           = wei_k / group_count;
+    int n           = (in_c / group_count) *
             std::accumulate(wei_spatial.begin(), wei_spatial.end(), 1, std::multiplies<int>());
     int k   = std::accumulate(out_spatial.begin(), out_spatial.end(), 1, std::multiplies<int>());
     int lda = k;
     int ldb = k;
     int ldc = n;
-    int batch_count = groupCount;
+    int batch_count = group_count;
     auto strideA    = static_cast<long long>(m) * k;
     auto strideB    = static_cast<long long>(k) * n;
     auto strideC    = static_cast<long long>(m) * n;

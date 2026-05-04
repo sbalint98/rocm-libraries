@@ -112,13 +112,11 @@ auto GetConvTestCases(miopenDataType_t datatype)
         TestCase{{1,  3,   2,   2},   {3,   1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  3  ,datatype,miopenTensorNHWC},
         TestCase{{1,  3,   24,  24},  {3,   1,   5,  5},  {3,  3},  {2,  2},  {2,  2},  3  ,datatype,miopenTensorNHWC},
         TestCase{{1,  16,  64,  64},  {32,  1,   5,  5},  {2,  2},  {1,  1},  {2,  2},  16 ,datatype,miopenTensorNHWC},
-    TestCase{{2,  8,   16,  16},  {16,  2,   3,  3},  {1,  1},  {1,  1},  {1,  1},  4  ,datatype,miopenTensorNHWC},
-    TestCase{{2,  8,   16,  16},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNHWC},
-    TestCase{{1,  16,  64,  64},  {32,  2,   5,  5},  {2,  2},  {1,  1},  {2,  2},  8  ,datatype,miopenTensorNHWC},
-    TestCase{{1,  64,  2,   2},   {64,  4,   2,  2},  {0,  0},  {1,  1},  {1,  1},  16 ,datatype,miopenTensorNHWC},
-
-
-          TestCase{{1,  64,  2,   2},   {64,  32,  2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{2,  8,   16,  16},  {16,  2,   3,  3},  {1,  1},  {1,  1},  {1,  1},  4  ,datatype,miopenTensorNHWC},
+        TestCase{{2,  8,   16,  16},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  16,  64,  64},  {32,  2,   5,  5},  {2,  2},  {1,  1},  {2,  2},  8  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  64,  2,   2},   {64,  4,   2,  2},  {0,  0},  {1,  1},  {1,  1},  16 ,datatype,miopenTensorNHWC},
+        TestCase{{1,  64,  2,   2},   {64,  32,  2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
         TestCase{{1,  4,   14,  14},  {4,   2,   3,  3},  {2,  2},  {1,  1},  {3,  3},  2  ,datatype,miopenTensorNHWC},
         TestCase{{1,  8,   32,  32},  {16,  4,   3,  3},  {1,  1},  {4,  4},  {1,  1},  2  ,datatype,miopenTensorNHWC},
         TestCase{{1,  4,   28,  28},  {6,   2,   5,  5},  {2,  2},  {3,  3},  {2,  2},  2  ,datatype,miopenTensorNHWC},
