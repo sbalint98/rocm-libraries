@@ -72,6 +72,64 @@ auto GetConvTestCases(miopenDataType_t datatype)
         TestCase{{1, 4, 5, 5}, {4, 4, 3, 3}, {1, 1}, {1, 1}, {1, 1},datatype, miopenTensorNHWC}, // Padding
         TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {0, 0}, {3, 3}, {1, 1},datatype, miopenTensorNHWC}, // large stride
         TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {1, 1}, {3, 3},datatype, miopenTensorNHWC}, // high dilation
+        
+
+        TestCase{{1,  4,   16,  16},  {4,   2,   3,  3},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  2,   3,   3},   {2,   1,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  2,   3,   3},   {2,   1,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  4,   3,   3},   {2,   2,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{2,  4,   3,   3},   {4,   2,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  4,   3,   3},   {4,   2,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  3,   7,   7},   {12,  1,   5,  5},  {0,  0},  {1,  1},  {2,  2},  3  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  3,   5,   5},   {9,   1,   3,  3},  {0,  0},  {2,  2},  {1,  1},  3  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  3,   3,   3},   {6,   1,   3,  3},  {0,  0},  {1,  1},  {1,  1},  3  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  3,   2,   2},   {3,   1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  3  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  3,   24,  24},  {3,   1,   5,  5},  {3,  3},  {2,  2},  {2,  2},  3  ,datatype,miopenTensorNCHW},
+        TestCase{{2,  8,   16,  16},  {16,  2,   3,  3},  {1,  1},  {1,  1},  {1,  1},  4  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  4,   14,  14},  {4,   2,   3,  3},  {2,  2},  {1,  1},  {3,  3},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  8,   32,  32},  {16,  4,   3,  3},  {1,  1},  {4,  4},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  4,   28,  28},  {6,   2,   5,  5},  {2,  2},  {3,  3},  {2,  2},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  4,   20,  20},  {4,   2,   3,  3},  {0,  0},  {1,  1},  {5,  5},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  64,  2,   2},   {64,  4,   2,  2},  {0,  0},  {1,  1},  {1,  1},  16 ,datatype,miopenTensorNCHW},
+        TestCase{{1,  64,  2,   2},   {64,  32,  2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  4,   5,   5},   {4,   2,   3,  3},  {3,  3},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  4,   7,   7},   {6,   2,   3,  3},  {1,  2},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  4,   7,   7},   {8,   2,   3,  3},  {1,  1},  {2,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  4,   5,   5},   {4,   2,   3,  3},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNCHW},
+        
+        // TestCase{{1,  2,   3,  3},  {2,   1,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC} // 65
+
+        TestCase{{1,  4,   16,  16},  {4,   2,   3,  3},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC}, // 65
+        TestCase{{1,  2,   3,   3},   {2,   1,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  2,   3,   3},   {2,   1,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  4,   3,   3},   {2,   2,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{2,  4,   3,   3},   {4,   2,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  4,   3,   3},   {4,   2,   2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  3,   7,   7},   {12,  1,   5,  5},  {0,  0},  {1,  1},  {2,  2},  3  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  3,   5,   5},   {9,   1,   3,  3},  {0,  0},  {2,  2},  {1,  1},  3  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  3,   3,   3},   {6,   1,   3,  3},  {0,  0},  {1,  1},  {1,  1},  3  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  3,   2,   2},   {3,   1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  3  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  3,   24,  24},  {3,   1,   5,  5},  {3,  3},  {2,  2},  {2,  2},  3  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  8,   16,  16},  {16,  2,   3,  3},  {1,  1},  {1,  1},  {1,  1},  4  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  8,   15,  15},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  8,   14,  14},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  8,   13,  13},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  8,   12,  12},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  8,   11,  11},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  8,   10,  10},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  8,   9,  9},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  8,   9,  9},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNCHW},
+        TestCase{{1,  8,   7,  7},  {16,  1,   3,  3},  {1,  1},  {1,  1},  {1,  1},  8  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  64,  2,   2},   {64,  4,   2,  2},  {0,  0},  {1,  1},  {1,  1},  16 ,datatype,miopenTensorNHWC},
+        TestCase{{1,  64,  2,   2},   {64,  32,  2,  2},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  4,   14,  14},  {4,   2,   3,  3},  {2,  2},  {1,  1},  {3,  3},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  8,   32,  32},  {16,  4,   3,  3},  {1,  1},  {4,  4},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  4,   28,  28},  {6,   2,   5,  5},  {2,  2},  {3,  3},  {2,  2},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  4,   20,  20},  {4,   2,   3,  3},  {0,  0},  {1,  1},  {5,  5},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  4,   5,   5},   {4,   2,   3,  3},  {3,  3},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  4,   7,   7},   {6,   2,   3,  3},  {1,  2},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  4,   7,   7},   {8,   2,   3,  3},  {1,  1},  {2,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
+        TestCase{{1,  4,   5,   5},   {4,   2,   3,  3},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC}
         // clang-format on
     };
 }

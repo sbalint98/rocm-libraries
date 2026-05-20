@@ -471,7 +471,8 @@ ConvSolution GemmWrwUniversal::GetSolution(const ExecutionContext& context,
                                   conv_dilations,
                                   workspace,
                                   dyDesc_.GetType(),
-                                  problem.IsLayoutNHWC());
+                                  problem.IsLayoutNHWC(),
+                                  problem.GetGroupCount());
 
                 miopenStatus_t status;
 

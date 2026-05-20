@@ -770,10 +770,11 @@ void RunSolverWrw(const miopen::solver::conv::ConvSolverInterface& solv,
 
     auto output = tensor<Tout>{output_desc};
 
-    input.generate(GenConvData<Tin, Twei>{output_desc.GetLengths()});
-    output.generate(GenConvData<Tout, Twei>{output_desc.GetLengths()});
+    input.generate(GenConvData<Tin, Twei>{conv_config.GetXTensorDescriptor().GetLengths(), conv_desc.GetGroupCount()} );
+    output.generate(GenConvData<Tout, Twei>{conv_config.GetXTensorDescriptor().GetLengths(),conv_desc.GetGroupCount()});
 
     // std::iota(input.begin(), input.end(), 1);
+    // std::fill(input.begin(), input.end(), 1);
     // std::iota(output.begin(), output.end(), 1);
     std::fill(weights.begin(), weights.end(), Twei());
 
@@ -855,6 +856,9 @@ void RunSolverWrw(const miopen::solver::conv::ConvSolverInterface& solv,
 
 
     // for (int i = 0; i < weights.GetSize(); i++){
+    //     if (weights[i] != ref_weights[i]) {
+    //         std::cout << " [X]";
+    //     }
     //     std::cout << weights[i] << " " << ref_weights[i] << std::endl;
     // }
     VerifyData(weights.data,
