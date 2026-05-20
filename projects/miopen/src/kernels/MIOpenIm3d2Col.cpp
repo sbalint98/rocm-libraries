@@ -57,6 +57,7 @@ typedef short data_t;
 typedef float data_t;
 #endif
 
+#if (LAYOUT_NHWC == 1)
 extern "C" __global__ void Im3d2Col(data_t* const __restrict im,
                                     const unsigned im_offset,
                                     const unsigned im_c_size,
@@ -119,3 +120,69 @@ extern "C" __global__ void Im3d2Col(data_t* const __restrict im,
         col[tid] = value;
     }
 }
+
+#else
+extern "C" __global__ void Im3d2Col(data_t* const __restrict im,
+                                    const unsigned im_offset,
+                                    const unsigned im_c_size,
+                                    const unsigned im_d_size,
+                                    const unsigned im_h_size,
+                                    const unsigned im_w_size,
+                                    const unsigned wei_d_size,
+                                    const unsigned wei_h_size,
+                                    const unsigned wei_w_size,
+                                    const unsigned out_d_size,
+                                    const unsigned out_h_size,
+                                    const unsigned out_w_size,
+                                    const unsigned pad_d_size,
+                                    const unsigned pad_h_size,
+                                    const unsigned pad_w_size,
+                                    const unsigned stride_d_size,
+                                    const unsigned stride_h_size,
+                                    const unsigned stride_w_size,
+                                    const unsigned dilation_d_size,
+                                    const unsigned dilation_h_size,
+                                    const unsigned dilation_w_size,
+                                    data_t* __restrict col)
+{
+    unsigned col_size =
+        out_d_size * out_h_size * out_w_size * wei_d_size * wei_h_size * wei_w_size * im_c_size;
+
+    unsigned int gtid        = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned int global_size = blockDim.x * gridDim.x;
+    for(unsigned tid = gtid; tid < col_size; tid += global_size)
+    {
+        // "col" matrix row and colume id
+        unsigned col_i = tid / (out_d_size * out_h_size * out_w_size);
+        unsigned col_j = tid - col_i * (out_d_size * out_h_size * out_w_size);
+
+        // output tensor out_d, out_h, out_w id
+        unsigned out_d = col_j / (out_h_size * out_w_size);
+        unsigned tmp   = col_j - out_d * (out_h_size * out_w_size);
+        unsigned out_h = tmp / out_w_size;
+        unsigned out_w = tmp - out_h * out_w_size;
+
+        // weight tensor wei_c, wei_d, wei_h, wei_d id
+        unsigned wei_c = col_i / (wei_d_size * wei_h_size * wei_w_size);
+        tmp            = col_i - wei_c * (wei_d_size * wei_h_size * wei_w_size);
+        unsigned wei_d = tmp / (wei_h_size * wei_w_size);
+        tmp -= wei_d * (wei_h_size * wei_w_size);
+        unsigned wei_h = tmp / wei_w_size;
+        unsigned wei_w = tmp - wei_h * wei_w_size;
+
+        // input tensor im_d, im_h, im_w id
+        int im_d = (int)(stride_d_size * out_d + dilation_d_size * wei_d) - (int)(pad_d_size);
+        int im_h = (int)(stride_h_size * out_h + dilation_h_size * wei_h) - (int)(pad_h_size);
+        int im_w = (int)(stride_w_size * out_w + dilation_w_size * wei_w) - (int)(pad_w_size);
+
+        data_t value = (im_d >= 0 && im_d < im_d_size && im_h >= 0 && im_h < im_h_size &&
+                        im_w >= 0 && im_w < im_w_size)
+                           ? im[im_offset + wei_c * (im_d_size * im_h_size * im_w_size) +
+                                im_d * (im_h_size * im_w_size) + im_h * im_w_size + im_w]
+                           : 0;
+
+        col[tid] = value;
+    }
+}
+
+#endif
