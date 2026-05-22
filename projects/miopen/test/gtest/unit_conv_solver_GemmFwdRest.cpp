@@ -74,7 +74,21 @@ auto GetConvTestCases(miopenDataType_t datatype)
     test_cases.emplace_back(TestCase{{1, 3, 20, 20}, {4, 3, 3, 3}, {0, 0}, {1, 1}, {5, 5}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC});
     test_cases.emplace_back(TestCase{{1, 64, 2, 2}, {64, 64, 2, 2}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}); // Small spatial, large channels 29
     test_cases.emplace_back(TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 2}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}); // Uneven padding (asymmetric) 31
-    test_cases.emplace_back(TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {2, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}); // Un    TestCase{{1, 4, 16, 16}, {4, 2, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNCHW,miopenTensorNCHW, 2}, 
+    test_cases.emplace_back(TestCase{{1, 3, 7, 7}, {3, 3, 3, 3}, {1, 1}, {2, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC}); // Un
+
+    // NDHWC tests
+    test_cases.emplace_back(TestCase{{2, 16, 5, 5, 5}, {32, 16, 1, 1, 1}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+    test_cases.emplace_back(TestCase{{1, 64, 7, 7, 7}, {16, 64, 1, 1, 1}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+    test_cases.emplace_back(TestCase{{1, 8, 14, 14, 14}, {16, 8, 3, 3, 3}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+    test_cases.emplace_back(TestCase{{4, 3, 10, 10, 10}, {8, 3, 3, 3, 3}, {1, 1, 1}, {1, 1, 1}, {1, 1, 1}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+    test_cases.emplace_back(TestCase{{2, 4, 16, 16, 16}, {8, 4, 3, 3, 3}, {1, 1, 1}, {2, 2, 2}, {1, 1, 1}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+    test_cases.emplace_back(TestCase{{1, 3, 15, 30, 30}, {16, 3, 5, 7, 7}, {2, 3, 3}, {3, 4, 4}, {1, 1, 1}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+    test_cases.emplace_back(TestCase{{1, 8, 15, 15, 15}, {8, 8, 3, 3, 3}, {2, 2, 2}, {1, 1, 1}, {2, 2, 2}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+    test_cases.emplace_back(TestCase{{2, 4, 20, 20, 20}, {4, 4, 3, 3, 3}, {3, 3, 3}, {1, 1, 1}, {3, 3, 3}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+    test_cases.emplace_back(TestCase{{2, 3, 8, 16, 16}, {16, 3, 1, 3, 3}, {0, 1, 1}, {1, 1, 1}, {1, 1, 1}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+    test_cases.emplace_back(TestCase{{1, 16, 10, 8, 8}, {16, 16, 3, 1, 1}, {1, 0, 0}, {1, 1, 1}, {1, 1, 1}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+    test_cases.emplace_back(TestCase{{1, 4, 7, 9, 11}, {8, 4, 3, 2, 4}, {0, 1, 0}, {1, 2, 3}, {2, 1, 1}, type_x, type_w, type_y, miopenTensorNDHWC, miopenTensorNDHWC});
+
 
     if(datatype != miopenInt8) {
     test_cases.emplace_back(TestCase{{1, 4, 16, 16}, {4, 2, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC,2}); 

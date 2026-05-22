@@ -556,7 +556,7 @@ float Im3d2ColGPU(const Handle& handle,
 {
     std::string program_name = "MIOpenIm3d2Col.cpp";
     std::string kernel_name  = "Im3d2Col";
-
+    std::string layout_str   = layoutNHWC ? "NHWC" : "NCHW";
     // clang-format off
     std::string network_config =
         "c" + std::to_string(im_c) +
@@ -575,7 +575,10 @@ float Im3d2ColGPU(const Handle& handle,
         "d" + std::to_string(dilation_d) +
         "_" + std::to_string(dilation_h) +
         "_" + std::to_string(dilation_w) +
-        "t" + std::to_string(type);
+        "t" + std::to_string(type) +
+        "layout" + layout_str;
+
+
     // clang-format on
 
     auto&& kernels = handle.GetKernels("miopenIm3d2Col", network_config);
@@ -612,6 +615,11 @@ float Im3d2ColGPU(const Handle& handle,
     else
     {
         std::string params = GetDataTypeKernelParams(type);
+        auto add_params = [&](std::string param) {
+            params += param;
+            network_config += param;
+        };
+        add_params(" -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC)));
 
         size_t global_threads = std::min(
             256 * static_cast<std::size_t>(out_d * out_h * out_w * im_c * wei_d * wei_h * wei_w) /
@@ -792,8 +800,11 @@ float Col2Im3dGPU(const Handle& handle,
                   const uint32_t in_w,
                   Data_t im,
                   const uint64_t im_offset,
-                  miopenDataType_t type)
+                  miopenDataType_t type,
+                  bool layoutNHWC,
+                  const uint32_t num_groups)
 {
+    std::string layout_str   = layoutNHWC ? "NHWC" : "NCHW";
     std::string program_name = "MIOpenCol2Im3d.cpp";
     std::string kernel_name  = "Col2Im3dU";
 
@@ -815,7 +826,8 @@ float Col2Im3dGPU(const Handle& handle,
         "d" + std::to_string(dilation_d) +
         "_" + std::to_string(dilation_h) +
         "_" + std::to_string(dilation_w) +
-        "t" + std::to_string(type);
+        "t" + std::to_string(type) +
+        "layout" + layout_str;;
     // clang-format on
 
     auto&& kernels = handle.GetKernels("miopenCol2Im3d", network_config);
@@ -856,6 +868,7 @@ float Col2Im3dGPU(const Handle& handle,
         std::string params = GetDataTypeKernelParams(type);
 
         params += use_64_bit_index ? " -DMIOPEN_USE_64BIT_INDEX=1" : " -DMIOPEN_USE_64BIT_INDEX=0";
+        params += " -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC));
 
         size_t global_threads = static_cast<size_t>(in_c) * in_d * in_h * in_w;
         size_t local_threads  = std::min(WG_SIZE, global_threads);
@@ -1042,7 +1055,9 @@ float Col2ImGPU(
                            in_spatial[2],
                            im,
                            im_offset,
-                           type);
+                           type,
+                           layoutNHWC,
+                           num_groups);
     }
     default: {
         MIOPEN_THROW("unsupported convolution dimension");

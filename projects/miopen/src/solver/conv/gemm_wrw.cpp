@@ -347,9 +347,15 @@ bool GemmWrwUniversal::IsApplicable(const ExecutionContext& context,
 #if MIOPEN_USE_GEMM
     if(!GemmWrwBase::IsApplicable(context, problem))
         return false;
+    if(GetWorkspaceSize(context, problem) != 0){
+        if(problem.GetSpatialDims() > 2){
+            return true;
+        }else {
+            return !GemmWrw1x1_stride1{}.IsApplicable(context, problem);
+        }
+    }
+    return false;
 
-    return !GemmWrw1x1_stride1{}.IsApplicable(context, problem) &&
-           GetWorkspaceSize(context, problem) != 0;
 #else
     std::ignore = context;
     std::ignore = problem;

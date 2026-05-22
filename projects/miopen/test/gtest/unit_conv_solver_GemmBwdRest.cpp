@@ -124,8 +124,19 @@ auto GetConvTestCases(miopenDataType_t datatype)
         TestCase{{1,  4,   5,   5},   {4,   2,   3,  3},  {3,  3},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
         TestCase{{1,  4,   7,   7},   {6,   2,   3,  3},  {1,  2},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
         TestCase{{1,  4,   7,   7},   {8,   2,   3,  3},  {1,  1},  {2,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
-        TestCase{{1,  4,   5,   5},   {4,   2,   3,  3},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC}
+        TestCase{{1,  4,   5,   5},   {4,   2,   3,  3},  {0,  0},  {1,  1},  {1,  1},  2  ,datatype,miopenTensorNHWC},
 
+        TestCase{{2, 16, 5, 5, 5}, {32, 16, 1, 1, 1}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC},
+        TestCase{{1, 64, 7, 7, 7}, {16, 64, 1, 1, 1}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC},
+        TestCase{{1, 8, 14, 14, 14}, {16, 8, 3, 3, 3}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC},
+        TestCase{{4, 3, 10, 10, 10}, {8, 3, 3, 3, 3}, {1, 1, 1}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC},
+        TestCase{{2, 4, 16, 16, 16}, {8, 4, 3, 3, 3}, {1, 1, 1}, {2, 2, 2}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC},
+        TestCase{{1, 3, 15, 30, 30}, {16, 3, 5, 7, 7}, {2, 3, 3}, {3, 4, 4}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC},
+        TestCase{{1, 8, 15, 15, 15}, {8, 8, 3, 3, 3}, {2, 2, 2}, {1, 1, 1}, {2, 2, 2}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC},
+        TestCase{{2, 4, 20, 20, 20}, {4, 4, 3, 3, 3}, {3, 3, 3}, {1, 1, 1}, {3, 3, 3}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC},
+        TestCase{{2, 3, 8, 16, 16}, {16, 3, 1, 3, 3}, {0, 1, 1}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC},
+        TestCase{{1, 16, 10, 8, 8}, {16, 16, 3, 1, 1}, {1, 0, 0}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC},
+        TestCase{{1, 4, 7, 9, 11}, {8, 4, 3, 2, 4}, {0, 1, 0}, {1, 2, 3}, {2, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC}
         // clang-format on
     };
 }
