@@ -116,6 +116,15 @@ auto GetConvTestCases(miopenDataType_t datatype)
     test_cases.emplace_back(TestCase{{1, 4, 7, 7}, {6, 2, 3, 3}, {1, 2}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC,2}); // Uneven padding (asymmetric) 31
     test_cases.emplace_back(TestCase{{1, 4, 7, 7}, {8, 2, 3, 3}, {1, 1}, {2, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC,2}); // Un    TestCase{{1, 4, 16, 16}, {4, 2, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNCHW,miopenTensorNCHW, 2}, 
     test_cases.emplace_back(TestCase{{1, 4, 5, 5}, {4, 2, 3, 3}, {0, 0}, {1, 1}, {1, 1}, type_x, type_w, type_y, miopenTensorNHWC,miopenTensorNHWC,2});
+    test_cases.emplace_back(TestCase{{2, 16, 5, 5, 5}, {32, 8, 1, 1, 1}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC, 2});
+    test_cases.emplace_back(TestCase{{1, 64, 7, 7, 7}, {16, 32, 1, 1, 1}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC, 2});
+    test_cases.emplace_back(TestCase{{1, 8, 14, 14, 14}, {16, 4, 3, 3, 3}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC, 2});
+    test_cases.emplace_back(TestCase{{1, 8, 14, 14, 14}, {16, 2, 3, 3, 3}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC, 4});
+    test_cases.emplace_back(TestCase{{1, 8, 14, 14, 14}, {16, 1, 3, 3, 3}, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC, 8});
+    test_cases.emplace_back(TestCase{{2, 4, 16, 16, 16}, {8, 2, 3, 3, 3}, {1, 1, 1}, {2, 2, 2}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC, 2});
+    test_cases.emplace_back(TestCase{{1, 8, 15, 15, 15}, {8, 4, 3, 3, 3}, {2, 2, 2}, {1, 1, 1}, {2, 2, 2}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC, 2});
+    test_cases.emplace_back(TestCase{{2, 4, 20, 20, 20}, {4, 2, 3, 3, 3}, {3, 3, 3}, {1, 1, 1}, {3, 3, 3}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC, 2});
+    test_cases.emplace_back(TestCase{{1, 16, 10, 8, 8}, {16, 8, 3, 1, 1}, {1, 0, 0}, {1, 1, 1}, {1, 1, 1}, datatype, datatype, datatype, miopenTensorNDHWC, miopenTensorNDHWC, 2});
     }
     return test_cases;
 }

@@ -89,6 +89,7 @@ float Im2d2ColGPU(const Handle& handle,
         "d" + std::to_string(dilation_h) +
         "_" + std::to_string(dilation_w) +
         "t" + std::to_string(type) +
+        "g" + std::to_string(num_groups) +
         "cho" + std::to_string(use_channel_offset) +
         "chpg" + std::to_string(channels_per_group) +
         "layout" + layout_str;
@@ -550,6 +551,7 @@ float Im3d2ColGPU(const Handle& handle,
                   Data_t col,
                   miopenDataType_t type,
                   bool layoutNHWC,
+                  int num_groups,
                   int channel_offset,
                   int in_c_per_group,
                   bool use_channel_offset)
@@ -576,6 +578,7 @@ float Im3d2ColGPU(const Handle& handle,
         "_" + std::to_string(dilation_h) +
         "_" + std::to_string(dilation_w) +
         "t" + std::to_string(type) +
+        "g" + std::to_string(num_groups) +
         "layout" + layout_str;
 
 
@@ -620,6 +623,7 @@ float Im3d2ColGPU(const Handle& handle,
             network_config += param;
         };
         add_params(" -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC)));
+        add_params(" -DGROUPS=" + std::to_string(num_groups));
 
         size_t global_threads = std::min(
             256 * static_cast<std::size_t>(out_d * out_h * out_w * im_c * wei_d * wei_h * wei_w) /
@@ -826,6 +830,7 @@ float Col2Im3dGPU(const Handle& handle,
         "d" + std::to_string(dilation_d) +
         "_" + std::to_string(dilation_h) +
         "_" + std::to_string(dilation_w) +
+        "g" + std::to_string(num_groups) +
         "t" + std::to_string(type) +
         "layout" + layout_str;;
     // clang-format on
@@ -869,6 +874,7 @@ float Col2Im3dGPU(const Handle& handle,
 
         params += use_64_bit_index ? " -DMIOPEN_USE_64BIT_INDEX=1" : " -DMIOPEN_USE_64BIT_INDEX=0";
         params += " -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC));
+        params += " -DGROUPS=" + std::to_string(num_groups);
 
         size_t global_threads = static_cast<size_t>(in_c) * in_d * in_h * in_w;
         size_t local_threads  = std::min(WG_SIZE, global_threads);
@@ -980,6 +986,7 @@ float Im2ColGPU(
                            col,
                            type,
                            layoutNHWC,
+                           num_groups,
                            channel_offset,
                            in_c_per_group,
                            use_channel_offset);

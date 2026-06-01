@@ -66,6 +66,8 @@ extern "C" __global__ void Col2Im3dU(FLOAT* col,
                                      FLOAT* im,
                                      const uint64_t im_offset)
 {
+    const unsigned int num_groups = GROUPS;
+    const unsigned int channels_per_group = channels / num_groups;
     FLOAT* im_off            = im + im_offset;
     unsigned int gid         = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int global_size = channels * depth * height * width;
@@ -73,6 +75,9 @@ extern "C" __global__ void Col2Im3dU(FLOAT* col,
         return;
 
     unsigned int im_ch = gid % channels;
+    unsigned int group_id = im_ch / channels_per_group;
+    unsigned int ch_in_group = im_ch % channels_per_group;
+
     unsigned int itmp  = gid / channels;
     unsigned int im_w  = itmp % width;
     itmp               = itmp / width;
@@ -98,6 +103,9 @@ extern "C" __global__ void Col2Im3dU(FLOAT* col,
                                : (im_w - (dilation_w * (wei_w - 1) + 1)) / stride_w + 1;
     unsigned int end_w   = min(col_w, im_w / stride_w + 1);
 
+    uint64_t inner_size = wei_d * wei_h * wei_w * channels_per_group;
+    uint64_t col_group_size = col_d * col_h * col_w * inner_size;
+
     FLOAT_ACCUM tmp = (FLOAT_ACCUM)0;
 
     for(unsigned int cz = start_d; cz < end_d; cz++)
@@ -115,12 +123,12 @@ extern "C" __global__ void Col2Im3dU(FLOAT* col,
                     unsigned int x = (im_w - cx * stride_w) / dilation_w;
 
 #if MIOPEN_USE_64BIT_INDEX
-                    uint64_t col_off =
-                        ((((((uint64_t)cz * col_h + cy) * col_w + cx) * wei_d + z) * wei_h + y) * wei_w + x) * channels + im_ch;
+                    uint64_t col_off = group_id * col_group_size + 
+                        ((((uint64_t)cz * col_h + cy) * col_w + cx) * inner_size) + 
+                        (((uint64_t)z * wei_h + y) * wei_w + x) * channels_per_group + ch_in_group;
 
 #else
-                    uint32_t col_off =
-                          (((((cz * col_h + cy) * col_w + cx) * wei_d + z) * wei_h + y) * wei_w + x) * channels + im_ch;
+                    uint32_t col_off = group_id * col_group_size + (((cz * col_h + cy) * col_w + cx) * inner_size) + ((z * wei_h + y) * wei_w + x) * channels_per_group + ch_in_group;
 #endif
 
                     tmp += CVT_FLOAT2ACCUM(col[col_off]);
