@@ -28,11 +28,13 @@
 #include <miopen/kernel_cache.hpp>
 #include <miopen/logger.hpp>
 #include <miopen/util.hpp>
+#include <miopen/tensor.hpp>
 
 #include <boost/range/adaptors.hpp>
 
 #include <cmath>
 #include <cstdint>
+#include <cassert>
 
 #define WG_SIZE (static_cast<size_t>(256))
 #define MAX_ACTIVE_THREADS (64 * 4 * 64)
@@ -57,10 +59,18 @@ float Im2d2ColGPU(const Handle& handle,
                   const int dilation_h,
                   const int dilation_w,
                   Data_t col,
-                  miopenDataType_t type)
+                  miopenDataType_t type,
+                  bool layoutNHWC,
+                  const int num_groups = 1)
 {
     std::string program_name = "MIOpenIm2d2Col.cpp";
-    std::string kernel_name  = "Im2d2Col_v2";
+    std::string kernel_name;
+    if  (layoutNHWC && (num_groups > 1)){
+        kernel_name  = "Im2d2Col_v2_grouped";
+    } else {
+        kernel_name  = "Im2d2Col_v2";
+    }    std::string layout_str   = layoutNHWC ? "NHWC" : "NCHW";
+
 
     // clang-format off
     std::string network_config =
@@ -75,7 +85,9 @@ float Im2d2ColGPU(const Handle& handle,
         "_" + std::to_string(stride_w) +
         "d" + std::to_string(dilation_h) +
         "_" + std::to_string(dilation_w) +
-        "t" + std::to_string(type);
+        "t" + std::to_string(type) +
+        "g" + std::to_string(num_groups) +
+        "layout" + layout_str;
     // clang-format on
 
     auto&& kernels = handle.GetKernels("miopenIm2d2Col", network_config);
@@ -107,6 +119,11 @@ float Im2d2ColGPU(const Handle& handle,
         const int c_pack = c;
 
         std::string params;
+
+        auto add_params = [&](std::string param) {
+            params += param;
+            network_config += param;
+        };
         int num_ch_per_wg;
         if((out_h <= 8 && out_w <= 8) && (stride_h == 1 && stride_w == 1) && (c_pack % 4 == 0))
             num_ch_per_wg = 4;
@@ -145,10 +162,12 @@ float Im2d2ColGPU(const Handle& handle,
                            ((wei_h - 1) * dilation_h + 1) * type_size;
         if(extreme_case > MAX_LOCAL_MEM)
         {
-            params += " -DEXTREME_LARGE";
-            params += " -DNUM_CH_TOTAL=" + std::to_string(c_pack);
-            network_config += " -DEXTREME_LARGE";
-            network_config += " -DNUM_CH_TOTAL=" + std::to_string(c_pack);
+            // params += " -DEXTREME_LARGE";
+            // params += ;
+            // network_config += " -DEXTREME_LARGE";
+            // network_config += " -DNUM_CH_TOTAL=" + std::to_string(c_pack);
+            add_params(" -DEXTREME_LARGE");
+            add_params(" -DNUM_CH_TOTAL=" + std::to_string(c_pack));
         }
         else
         {
@@ -182,30 +201,21 @@ float Im2d2ColGPU(const Handle& handle,
                 }
             }
         }
-
-        params += " -DLOCAL_MEM_SIZE=" +
-                  std::to_string(local_mem_sz); // needs some changes to the kernel launch
-        params += " -DSTRIDE_GT_1=" + std::to_string(static_cast<int>(stride_h * stride_w > 1));
-        params += " -DNUM_IM_BLKS_EQ_1=" + std::to_string(static_cast<int>(num_blks == 1));
-        params += " -DUSE_IM_OFF_GUARD=1"; // always one
-
-        network_config += " -DLOCAL_MEM_SIZE=" +
-                          std::to_string(local_mem_sz); // needs some changes to the kernel launch
-        network_config +=
-            " -DSTRIDE_GT_1=" + std::to_string(static_cast<int>(stride_h * stride_w > 1));
-        network_config += " -DNUM_IM_BLKS_EQ_1=" + std::to_string(static_cast<int>(num_blks == 1));
-        network_config += " -DUSE_IM_OFF_GUARD=1"; // always one
+        add_params(" -DLOCAL_MEM_SIZE=" +
+                  std::to_string(local_mem_sz));
+        add_params(" -DSTRIDE_GT_1=" + std::to_string(static_cast<int>(stride_h * stride_w > 1)));
+        add_params(" -DNUM_IM_BLKS_EQ_1=" + std::to_string(static_cast<int>(num_blks == 1)));
+        add_params(" -DUSE_IM_OFF_GUARD=1"); // always one
 
         params += GetDataTypeKernelParams(type);
 
+        add_params(" -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC)));
         const int group_size_x = 256;
-        const std::vector<size_t> vld{group_size_x, 1, 1};
-        size_t group_cnt = std::max(1, (c_pack / num_ch_per_wg)) * static_cast<size_t>(num_blks);
-        size_t global_threads = group_size_x * group_cnt;
-        const std::vector<size_t> vgd{global_threads, 1, 1};
+        
+        size_t global_threads = group_size_x * num_groups;
 
         bool use_64bit_buffer_index = false;
-        use_64bit_buffer_index |= group_cnt > INT32_MAX;
+        use_64bit_buffer_index |= num_groups > INT32_MAX;
 
         if(extreme_case > MAX_LOCAL_MEM)
         {
@@ -227,11 +237,11 @@ float Im2d2ColGPU(const Handle& handle,
         {
             if(num_blks == 1 && stride_h * stride_w == 1)
             {
-                const size_t im_off_id = 1LL * group_cnt * num_ch_per_wg * in_h * in_w;
+                const size_t im_off_id = 1LL * num_groups * num_ch_per_wg * in_h * in_w;
                 use_64bit_buffer_index |= im_off_id > INT32_MAX;
 
                 const size_t col_y =
-                    (1LL * group_cnt * num_ch_per_wg) * out_h * out_w * wei_h * wei_w;
+                    (1LL * num_groups * num_ch_per_wg) * out_h * out_w * wei_h * wei_w;
                 use_64bit_buffer_index |= col_y > INT32_MAX;
 
                 // col_x= out_y * out_w + out_x;
@@ -243,7 +253,7 @@ float Im2d2ColGPU(const Handle& handle,
             }
             else
             {
-                const size_t im_off_id = 1LL * (group_cnt / num_blks) * in_h * in_w;
+                const size_t im_off_id = 1LL * (num_groups / num_blks) * in_h * in_w;
                 use_64bit_buffer_index |= im_off_id > INT32_MAX;
 
                 const size_t col_x = 1LL * (out_h + 256) * out_w + 256;
@@ -259,35 +269,87 @@ float Im2d2ColGPU(const Handle& handle,
 
         if(use_64bit_buffer_index)
         {
-            params += " -DUSE_LARGE_BUFFER_INDEX";
-            network_config += " -DUSE_LARGE_BUFFER_INDEX";
+            add_params(" -DUSE_LARGE_BUFFER_INDEX");
         }
 
-        handle.AddKernel(
-            "miopenIm2d2Col", network_config, program_name, kernel_name, vld, vgd, params)(
-            data_size_bound,
-            im,
-            im_offset,
-            in_h,
-            in_w,
-            wei_h,
-            wei_w,
-            out_h,
-            out_w,
-            pad_h,
-            pad_w,
-            stride_h,
-            stride_w,
-            dilation_h,
-            dilation_w,
-            col,
-            num_ch_per_wg,
-            num_blks_x,
-            num_blks,
-            tile_sz_x,
-            tile_sz_y);
-    }
+        const std::vector<size_t> vld{group_size_x, 1, 1};
+        if(layoutNHWC)
+        {
 
+            const bool use_channel_based = true;
+
+            add_params(" -DWEI_H=" + std::to_string(wei_h));
+            add_params(" -DWEI_W=" + std::to_string(wei_w));
+            add_params(" -DCHANNELS=" + std::to_string(c));
+            add_params(" -DGROUPS=" + std::to_string(num_groups));
+
+            std::vector<size_t> vgd;
+
+            const int bytes_per_pixel = c * get_data_size(type);
+
+            bool selected = false;
+
+            add_params(" -DUSE_CHANNEL_BASED");
+
+            const int tile_out_h = 16;
+            const int tile_out_w = 16;
+
+            add_params(" -DTILE_OUT_H=" + std::to_string(tile_out_h));
+            add_params(" -DTILE_OUT_W=" + std::to_string(tile_out_w));
+
+            const int tiles_out_h = integer_division_ceil(out_h, tile_out_h);
+            const int tiles_out_w = integer_division_ceil(out_w, tile_out_w);
+
+            vgd      = {c * std::size_t{group_size_x}, tiles_out_h, tiles_out_w}; // channel based
+            selected = true;
+
+            handle.AddKernel(
+                "miopenIm2Col", network_config, program_name, kernel_name, vld, vgd, params)(
+                data_size_bound,
+                im,
+                im_offset,
+                in_h,
+                in_w,
+                wei_h,
+                wei_w,
+                out_h,
+                out_w,
+                pad_h,
+                pad_w,
+                stride_h,
+                stride_w,
+                dilation_h,
+                dilation_w,
+                col);
+        }
+        else
+        {
+            const std::vector<size_t> vgd{global_threads, 1, 1};
+            handle.AddKernel(
+                "miopenIm2Col", network_config, program_name, kernel_name, vld, vgd, params)(
+                data_size_bound,
+                im,
+                im_offset,
+                in_h,
+                in_w,
+                wei_h,
+                wei_w,
+                out_h,
+                out_w,
+                pad_h,
+                pad_w,
+                stride_h,
+                stride_w,
+                dilation_h,
+                dilation_w,
+                col,
+                num_ch_per_wg,
+                num_blks_x,
+                num_blks,
+                tile_sz_x,
+                tile_sz_y);
+        }
+    }
     return handle.GetKernelTime();
 }
 
@@ -314,11 +376,13 @@ float Im3d2ColGPU(const Handle& handle,
                   const int dilation_h,
                   const int dilation_w,
                   Data_t col,
-                  miopenDataType_t type)
+                  miopenDataType_t type,
+                  bool layoutNHWC,
+                  int num_groups)
 {
     std::string program_name = "MIOpenIm3d2Col.cpp";
     std::string kernel_name  = "Im3d2Col";
-
+    std::string layout_str   = layoutNHWC ? "NHWC" : "NCHW";
     // clang-format off
     std::string network_config =
         "c" + std::to_string(im_c) +
@@ -337,7 +401,11 @@ float Im3d2ColGPU(const Handle& handle,
         "d" + std::to_string(dilation_d) +
         "_" + std::to_string(dilation_h) +
         "_" + std::to_string(dilation_w) +
-        "t" + std::to_string(type);
+        "t" + std::to_string(type) +
+        "g" + std::to_string(num_groups) +
+        "layout" + layout_str;
+
+
     // clang-format on
 
     auto&& kernels = handle.GetKernels("miopenIm3d2Col", network_config);
@@ -374,6 +442,12 @@ float Im3d2ColGPU(const Handle& handle,
     else
     {
         std::string params = GetDataTypeKernelParams(type);
+        auto add_params = [&](std::string param) {
+            params += param;
+            network_config += param;
+        };
+        add_params(" -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC)));
+        add_params(" -DGROUPS=" + std::to_string(num_groups));
 
         size_t global_threads = std::min(
             256 * static_cast<std::size_t>(out_d * out_h * out_w * im_c * wei_d * wei_h * wei_w) /
@@ -433,16 +507,20 @@ float Col2Im2dGPU(const Handle& handle,
                   const uint32_t in_w,
                   Data_t im,
                   uint32_t im_offset,
-                  miopenDataType_t type)
+                  miopenDataType_t type,
+                  bool layoutNHWC,
+                  const int num_groups = 1)
 {
     std::string program_name = "MIOpenCol2Im2d.cpp";
     std::string kernel_name  = "Col2Im2dU";
+    std::string layout_str   = layoutNHWC ? "NHWC" : "NCHW";
 
     // clang-format off
     std::string network_config =
         "c" + std::to_string(in_c) +
         "in_h" + std::to_string(in_h) +
         "in_w" + std::to_string(in_w) +
+        "groups" + std::to_string(num_groups) +
         "y" + std::to_string(wei_h) +
         "x" + std::to_string(wei_w) +
         "p" + std::to_string(pad_h) +
@@ -451,7 +529,8 @@ float Col2Im2dGPU(const Handle& handle,
         "v" + std::to_string(stride_w) +
         "l" + std::to_string(dilation_h) +
         "j" + std::to_string(dilation_w) +
-        "t" + std::to_string(type);
+        "t" + std::to_string(type) +
+        "layout" + layout_str;
     // clang-format on
 
     auto&& kernels = handle.GetKernels("miopenCol2Im2d", network_config);
@@ -500,6 +579,9 @@ float Col2Im2dGPU(const Handle& handle,
 
         params += " -DMIOPEN_USE_64BIT_INDEX=" + std::to_string(Is64BitIndexRequired());
 
+        params += " -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC));
+        params += " -DGROUPS=" + std::to_string(num_groups);
+
         handle.AddKernel(
             "miopenCol2Im2d", network_config, program_name, kernel_name, vld, vgd, params)(
             col,
@@ -518,6 +600,7 @@ float Col2Im2dGPU(const Handle& handle,
             in_w,
             im,
             im_offset);
+
     }
     return handle.GetKernelTime();
 }
@@ -545,8 +628,11 @@ float Col2Im3dGPU(const Handle& handle,
                   const uint32_t in_w,
                   Data_t im,
                   const uint64_t im_offset,
-                  miopenDataType_t type)
+                  miopenDataType_t type,
+                  bool layoutNHWC,
+                  const uint32_t num_groups)
 {
+    std::string layout_str   = layoutNHWC ? "NHWC" : "NCHW";
     std::string program_name = "MIOpenCol2Im3d.cpp";
     std::string kernel_name  = "Col2Im3dU";
 
@@ -568,7 +654,9 @@ float Col2Im3dGPU(const Handle& handle,
         "d" + std::to_string(dilation_d) +
         "_" + std::to_string(dilation_h) +
         "_" + std::to_string(dilation_w) +
-        "t" + std::to_string(type);
+        "g" + std::to_string(num_groups) +
+        "t" + std::to_string(type) +
+        "layout" + layout_str;;
     // clang-format on
 
     auto&& kernels = handle.GetKernels("miopenCol2Im3d", network_config);
@@ -609,6 +697,8 @@ float Col2Im3dGPU(const Handle& handle,
         std::string params = GetDataTypeKernelParams(type);
 
         params += use_64_bit_index ? " -DMIOPEN_USE_64BIT_INDEX=1" : " -DMIOPEN_USE_64BIT_INDEX=0";
+        params += " -DLAYOUT_NHWC=" + std::to_string(static_cast<int>(layoutNHWC));
+        params += " -DGROUPS=" + std::to_string(num_groups);
 
         size_t global_threads = static_cast<size_t>(in_c) * in_d * in_h * in_w;
         size_t local_threads  = std::min(WG_SIZE, global_threads);
@@ -660,7 +750,9 @@ float Im2ColGPU(
     const std::vector<int>& stride_spatial,
     const std::vector<int>& dilation_spatial,
     Data_t col,
-    miopenDataType_t type)
+    miopenDataType_t type,
+    bool layoutNHWC,
+    int num_groups)
 {
     switch(spatial_dim)
     {
@@ -682,7 +774,9 @@ float Im2ColGPU(
                            dilation_spatial[0],
                            dilation_spatial[1],
                            col,
-                           type);
+                           type,
+                           layoutNHWC,
+                           num_groups);
     }
     case 3: {
         return Im3d2ColGPU(handle,
@@ -708,7 +802,9 @@ float Im2ColGPU(
                            dilation_spatial[1],
                            dilation_spatial[2],
                            col,
-                           type);
+                           type,
+                           layoutNHWC,
+                           num_groups);
     }
     default: {
         MIOPEN_THROW("unsupported convolution dimension");
@@ -729,7 +825,9 @@ float Col2ImGPU(
     const decltype(boost::adaptors::slice(std::vector<std::size_t>(), 0, 1))& in_spatial,
     Data_t im,
     std::size_t im_offset,
-    miopenDataType_t type)
+    miopenDataType_t type,
+    bool layoutNHWC,
+    const int num_groups)
 {
     switch(spatial_dim)
     {
@@ -751,7 +849,9 @@ float Col2ImGPU(
                            in_spatial[1],
                            im,
                            im_offset,
-                           type);
+                           type,
+                           layoutNHWC, 
+                           num_groups);
     }
     case 3: {
         return Col2Im3dGPU(handle,
@@ -777,7 +877,9 @@ float Col2ImGPU(
                            in_spatial[2],
                            im,
                            im_offset,
-                           type);
+                           type,
+                           layoutNHWC,
+                           num_groups);
     }
     default: {
         MIOPEN_THROW("unsupported convolution dimension");

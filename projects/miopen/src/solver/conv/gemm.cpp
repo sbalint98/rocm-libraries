@@ -101,7 +101,7 @@ bool GemmFwdBase::IsApplicable(const ExecutionContext& ctx, const ProblemDescrip
     if(problem.HasNonPackedTensors())
         return false;
 
-    return problem.IsDirectionForward() && problem.IsLayoutDefault() &&
+    return problem.IsDirectionForward() &&
            !(gemm::IsAnyBufferBf16(xDesc, yDesc, wDesc) && !gemm::IsBf16Supported) &&
            !(gemm::IsAnyBufferFp16(xDesc, yDesc, wDesc) && !gemm::IsFp16Supported);
 #else
@@ -231,6 +231,8 @@ bool GemmFwd1x1_0_2::IsApplicable(const ExecutionContext& context,
     if(!GemmFwdBase::IsApplicable(context, problem))
         return false;
 
+    if(!problem.IsLayoutDefault())
+        return false;
     decltype(auto) conv  = problem.GetConv();
     decltype(auto) wDesc = problem.GetWeights();
 
@@ -494,6 +496,9 @@ bool GemmFwd1x1_0_1_int8::IsApplicable(const ExecutionContext& context,
     if(!GemmFwdBase::IsApplicable(context, problem))
         return false;
 
+    if(!problem.IsLayoutDefault())
+        return false;
+
     decltype(auto) conv  = problem.GetConv();
     decltype(auto) wDesc = problem.GetWeights();
 
@@ -540,7 +545,7 @@ ConvSolution GemmFwd1x1_0_1_int8::GetSolution(const ExecutionContext& context,
 
     TensorDescriptor ygemmDesc(miopenInt32, yDesc.GetLengths(), yDesc.GetStrides());
     const GemmDescriptor tmp_gemm_desc = [&]() {
-        auto tmp          = CreateGemmDescriptorConvFwd(wDesc, xDesc, yDesc);
+        auto tmp          = CreateGemmDescriptorConvFwd(problem);
         tmp.deterministic = problem.GetConv().attribute.deterministic;
         if(problem.IsTensorsCasted())
         {
@@ -643,6 +648,9 @@ bool GemmFwd1x1_0_1::IsApplicable(const ExecutionContext& context,
     if(!GemmFwdBase::IsApplicable(context, problem))
         return false;
 
+    if(!problem.IsLayoutDefault())
+        return false;
+
     decltype(auto) conv  = problem.GetConv();
     decltype(auto) wDesc = problem.GetWeights();
 
@@ -687,7 +695,7 @@ ConvSolution GemmFwd1x1_0_1::GetSolution(const ExecutionContext& context,
     if(group_count > 1)
     {
         const GemmDescriptor tmp_gemm_desc = [&]() {
-            auto tmp          = CreateGemmDescriptorGroupConvFwd(wDesc, xDesc, yDesc, group_count);
+            auto tmp          = CreateGemmDescriptorGroupConvFwd(problem);
             tmp.deterministic = problem.GetConv().attribute.deterministic;
             if(problem.IsTensorsCasted())
             {
@@ -905,8 +913,8 @@ ConvSolution GemmFwdRest::GetSolution(const ExecutionContext& context,
     solution.invoker_factory = [=](const std::vector<Kernel>&) {
         const auto tmp_gemm_desc = [&]() {
             auto tmp          = conv.group_count > 1
-                                    ? CreateGemmDescriptorGroupConvFwd(wDesc, xDesc, yDesc, conv.group_count)
-                                    : CreateGemmDescriptorConvFwd(wDesc, xDesc, yDesc);
+                                    ? CreateGemmDescriptorGroupConvFwd(problem)
+                                    : CreateGemmDescriptorConvFwd(problem);
             tmp.deterministic = problem.GetConv().attribute.deterministic;
             if(problem.IsTensorsCasted())
             {
@@ -975,10 +983,12 @@ ConvSolution GemmFwdRest::GetSolution(const ExecutionContext& context,
                                        conv.GetConvStrides(),
                                        conv.GetConvDilations(),
                                        workSpace,
-                                       xDesc.GetType());
+                                       xDesc.GetType(),
+                                       problem.IsLayoutNHWC(),
+                                       problem.GetGroupCount());
 
                 std::size_t wksp_offset = 0;
-                if(wDesc.GetType() == miopenInt8)
+                if(wDesc.GetType() == miopenInt8 && !problem.IsLayoutNHWC())
                 {
                     wksp_offset = in_c * wei_spatial_size * out_spatial_size;
 
